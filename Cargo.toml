@@ -6,9 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdl2 = "0.34.5"
+sdl2 = "0.34.5" # this version must match the version of sdl2 used by imgui-sdl2-support
+
 # ImGui
 imgui = "0.11"
 glow = "0.12.0"
 imgui-glow-renderer = "0.11.0"
 imgui-sdl2-support = "0.11.0"
+
+# Logging
+log = "0.4.17"
+simple_logger = "4.1.0"

@@ -6,6 +6,7 @@ use sdl2::{
     event::Event,
     video::{GLProfile, Window},
 };
+use simple_logger::SimpleLogger;
 
 // Create a new glow context.
 fn glow_context(window: &Window) -> glow::Context {
@@ -15,6 +16,9 @@ fn glow_context(window: &Window) -> glow::Context {
 }
 
 fn main() {
+    SimpleLogger::new().init().unwrap();
+    log::info!("hello world");
+
     /* initialize SDL and its video subsystem */
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
