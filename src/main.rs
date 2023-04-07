@@ -2,6 +2,7 @@ use glow::HasContext;
 use imgui::Context;
 use imgui_glow_renderer::AutoRenderer;
 use imgui_sdl2_support::SdlPlatform;
+use sdl2::keyboard::Keycode;
 use sdl2::{
     event::Event,
     video::{GLProfile, Window},
@@ -62,7 +63,7 @@ fn main() {
         .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
 
     /* create platform and renderer */
-    let mut platform = SdlPlatform::init(&mut imgui);
+    let mut imgui_backend = SdlPlatform::init(&mut imgui);
     let mut renderer = AutoRenderer::initialize(gl, &mut imgui).unwrap();
 
     /* start main loop */
@@ -70,20 +71,29 @@ fn main() {
 
     'main: loop {
         for event in event_pump.poll_iter() {
-            /* pass all events to imgui platfrom */
-            platform.handle_event(&mut imgui, &event);
+            imgui_backend.handle_event(&mut imgui, &event);
 
-            if let Event::Quit { .. } = event {
-                break 'main;
+            match event {
+                Event::Quit { .. } => break 'main,
+                Event::KeyDown { keycode, .. } => match keycode {
+                    Some(Keycode::Escape) => {
+                        break 'main;
+                    }
+                    _ => {}
+                },
+                _ => {}
             }
         }
 
         /* call prepare_frame before calling imgui.new_frame() */
-        platform.prepare_frame(&mut imgui, &window, &event_pump);
-
+        imgui_backend.prepare_frame(&mut imgui, &window, &event_pump);
         let ui = imgui.new_frame();
+
         /* create imgui UI here */
-        ui.show_demo_window(&mut true);
+        if let Some(window) = ui.window("Example Window").begin() {
+            ui.text("Window is visible");
+            window.end();
+        };
 
         /* render */
         let draw_data = imgui.render();
