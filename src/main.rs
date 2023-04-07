@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::Path;
 
 use configparser::ini::Ini;
@@ -14,6 +13,8 @@ use sdl2::{
     video::{GLProfile, Window},
 };
 use simple_logger::SimpleLogger;
+
+const CONFIG_FILE: &str = "config.ini";
 
 fn init_logging() {
     SimpleLogger::new().init().unwrap();
@@ -56,13 +57,11 @@ fn main() {
     init_logging();
 
     /* Initialize configuration */
-    let mut ini = Ini::new();
-    let config = if Path::new("./config.ini").exists() {
-        ini.load("config.ini").unwrap()
-    } else {
-        HashMap::default()
-    };
-    println!("{:?}", config);
+    let mut config = Ini::new();
+    if Path::new("./config.ini").exists() {
+        config.load("config.ini").unwrap();
+    }
+    config.set("numbers", "first", Some(String::from("11")));
 
     /* Initialize SDL */
     let sdl = sdl2::init().unwrap();
@@ -114,4 +113,6 @@ fn main() {
 
         window.gl_swap_window();
     }
+
+    config.write(CONFIG_FILE).unwrap();
 }
