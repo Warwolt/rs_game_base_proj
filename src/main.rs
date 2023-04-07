@@ -79,10 +79,11 @@ fn main() {
         .fonts()
         .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
     let mut imgui_platform = SdlPlatform::init(&mut imgui_context);
-    let mut imgui_renderer = AutoRenderer::initialize(glow_context, &mut imgui_context).unwrap();
 
     let mut event_pump = sdl.event_pump().unwrap();
+    let mut renderer = AutoRenderer::initialize(glow_context, &mut imgui_context).unwrap();
     'main_loop: loop {
+        /* Input */
         for event in event_pump.poll_iter() {
             imgui_platform.handle_event(&mut imgui_context, &event);
 
@@ -98,6 +99,9 @@ fn main() {
             }
         }
 
+        /* Game update */
+        // ..
+
         /* ImGui update */
         imgui_platform.prepare_frame(&mut imgui_context, &window, &event_pump);
         let ui = imgui_context.new_frame();
@@ -106,10 +110,16 @@ fn main() {
             window.end();
         };
 
-        /* render */
+        /* Game render */
+        unsafe {
+            let gl = renderer.gl_context();
+            gl.clear(glow::COLOR_BUFFER_BIT);
+            gl.clear_color(0.0, 0.5, 0.5, 0.0);
+        }
+
+        /* ImGui render */
         let imgui_draw_data = imgui_context.render();
-        unsafe { imgui_renderer.gl_context().clear(glow::COLOR_BUFFER_BIT) };
-        imgui_renderer.render(imgui_draw_data).unwrap();
+        renderer.render(imgui_draw_data).unwrap();
 
         window.gl_swap_window();
     }
