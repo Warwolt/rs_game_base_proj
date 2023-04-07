@@ -80,7 +80,6 @@ fn main() {
         gl.use_program(Some(program));
         gl.clear_color(0.1, 0.2, 0.3, 1.0);
 
-        // We handle events differently between targets
         {
             let mut running = true;
             while running {
