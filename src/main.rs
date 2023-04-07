@@ -27,14 +27,25 @@ fn init_video(sdl_video: &VideoSubsystem) {
 }
 
 fn init_window(sdl_video: &VideoSubsystem, title: &str, width: u32, height: u32) -> Window {
-    let window = sdl_video
+    let mut window = sdl_video
         .window(title, width, height)
         .allow_highdpi()
         .opengl()
         .position_centered()
         .resizable()
+        .hidden()
         .build()
         .unwrap();
+
+    // hack: move window to 2nd monitor because my laptop is stupid
+    {
+        let bounds = sdl_video.display_bounds(1).unwrap();
+        window.set_position(
+            sdl2::video::WindowPos::Positioned(bounds.x + (bounds.w - width as i32) / 2),
+            sdl2::video::WindowPos::Positioned(bounds.y + (bounds.h - height as i32) / 2),
+        );
+        window.show();
+    }
 
     return window;
 }
