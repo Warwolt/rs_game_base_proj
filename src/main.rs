@@ -1,10 +1,12 @@
+extern crate gl;
+extern crate imgui;
+extern crate imgui_opengl_renderer;
+extern crate imgui_sdl2;
+extern crate sdl2;
+
 use std::path::Path;
 
 use configparser::ini::Ini;
-use glow::HasContext;
-use imgui::Context;
-use imgui_glow_renderer::AutoRenderer;
-use imgui_sdl2_support::SdlPlatform;
 use sdl2::keyboard::Keycode;
 use sdl2::video::GLContext;
 use sdl2::VideoSubsystem;
@@ -57,12 +59,6 @@ fn init_opengl(window: &Window) -> GLContext {
     return gl_context;
 }
 
-fn init_glow_context(window: &Window) -> glow::Context {
-    unsafe {
-        glow::Context::from_loader_function(|s| window.subsystem().gl_get_proc_address(s) as _)
-    }
-}
-
 fn main() {
     /* Initialize logging */
     init_logging();
@@ -79,25 +75,22 @@ fn main() {
     let sdl_video = sdl.video().unwrap();
     init_video(&sdl_video);
     let window = init_window(&sdl_video, "Base Project", 800, 600);
+
+    /* Initialize OpenGL */
     let _gl_context = init_opengl(&window); // closes on drop
-    let glow_context = init_glow_context(&window);
+    gl::load_with(|s| sdl_video.gl_get_proc_address(s) as _);
 
     /* Initialize ImGui */
-    let mut imgui_context = Context::create();
-    imgui_context.set_ini_filename(None);
-    imgui_context.set_log_filename(None);
-    imgui_context
-        .fonts()
-        .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
-    let mut imgui_platform = SdlPlatform::init(&mut imgui_context);
+    let mut imgui = imgui::Context::create();
+    let mut imgui_sdl = imgui_sdl2::ImguiSdl2::new(&mut imgui, &window);
+    let imgui_renderer =
+        imgui_opengl_renderer::Renderer::new(&mut imgui, |s| sdl_video.gl_get_proc_address(s) as _);
 
     let mut event_pump = sdl.event_pump().unwrap();
-    let mut renderer = AutoRenderer::initialize(glow_context, &mut imgui_context).unwrap();
     'main_loop: loop {
         /* Input */
         for event in event_pump.poll_iter() {
-            imgui_platform.handle_event(&mut imgui_context, &event);
-
+            imgui_sdl.handle_event(&mut imgui, &event);
             match event {
                 Event::Quit { .. } => break 'main_loop,
                 Event::KeyDown { keycode, .. } => match keycode {
@@ -114,23 +107,24 @@ fn main() {
         // ..
 
         /* ImGui update */
-        imgui_platform.prepare_frame(&mut imgui_context, &window, &event_pump);
-        let ui = imgui_context.new_frame();
+        imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
+        let ui = imgui.frame();
         if let Some(window) = ui.window("Example Window").begin() {
             ui.text("Window is visible");
             window.end();
         };
 
-        /* Game render */
+        /* Render */
         unsafe {
-            let gl = renderer.gl_context();
-            gl.clear(glow::COLOR_BUFFER_BIT);
-            gl.clear_color(0.0, 0.5, 0.5, 0.0);
+            gl::ClearColor(0.2, 0.2, 0.2, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
 
+        /* Game render */
+
         /* ImGui render */
-        let imgui_draw_data = imgui_context.render();
-        renderer.render(imgui_draw_data).unwrap();
+        imgui_sdl.prepare_render(&ui, &window);
+        imgui_renderer.render(&mut imgui);
 
         window.gl_swap_window();
     }

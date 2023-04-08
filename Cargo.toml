@@ -7,12 +7,12 @@ edition = "2021"
 
 [dependencies]
 sdl2 = "0.34.5" # this version must match the version of sdl2 used by imgui-sdl2-support
+gl = "0.10.0"
 
 # ImGui
-imgui = "0.11"
-glow = "0.12.0"
-imgui-glow-renderer = "0.11.0"
-imgui-sdl2-support = "0.11.0"
+imgui = "0.9.0"
+imgui-opengl-renderer = "0.12.0"
+imgui-sdl2 = "0.15.1"
 
 # Logging
 log = "0.4.17"
