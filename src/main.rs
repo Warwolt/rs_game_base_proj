@@ -4,7 +4,10 @@ extern crate imgui_opengl_renderer;
 extern crate imgui_sdl2;
 extern crate sdl2;
 
+mod rendering;
+
 use std::path::Path;
+use std::str;
 
 use configparser::ini::Ini;
 use sdl2::keyboard::Keycode;
@@ -22,13 +25,26 @@ fn init_logging() {
     SimpleLogger::new().init().unwrap();
 }
 
-fn init_video(sdl_video: &VideoSubsystem) {
+fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {
+    let sdl_video = sdl.video().unwrap();
+
+    // hint that we'll use the "330 core" OpenGL profile
     let gl_attr = sdl_video.gl_attr();
     gl_attr.set_context_version(3, 3);
     gl_attr.set_context_profile(GLProfile::Core);
+
+    sdl_video
 }
 
-fn init_window(sdl_video: &VideoSubsystem, title: &str, width: u32, height: u32) -> Window {
+struct Monitor(i32);
+
+fn init_window(
+    sdl_video: &VideoSubsystem,
+    title: &str,
+    width: u32,
+    height: u32,
+    monitor: Monitor,
+) -> Window {
     let mut window = sdl_video
         .window(title, width, height)
         .allow_highdpi()
@@ -39,15 +55,13 @@ fn init_window(sdl_video: &VideoSubsystem, title: &str, width: u32, height: u32)
         .build()
         .unwrap();
 
-    // hack: move window to 2nd monitor because my laptop is stupid
-    {
-        let bounds = sdl_video.display_bounds(1).unwrap();
+    if let Ok(bounds) = sdl_video.display_bounds(monitor.0) {
         window.set_position(
             sdl2::video::WindowPos::Positioned(bounds.x + (bounds.w - width as i32) / 2),
             sdl2::video::WindowPos::Positioned(bounds.y + (bounds.h - height as i32) / 2),
         );
-        window.show();
     }
+    window.show();
 
     return window;
 }
@@ -72,9 +86,8 @@ fn main() {
 
     /* Initialize SDL */
     let sdl = sdl2::init().unwrap();
-    let sdl_video = sdl.video().unwrap();
-    init_video(&sdl_video);
-    let window = init_window(&sdl_video, "Base Project", 800, 600);
+    let sdl_video = init_video(&sdl);
+    let window = init_window(&sdl_video, "Base Project", 800, 600, Monitor(1));
 
     /* Initialize OpenGL */
     let _gl_context = init_opengl(&window); // closes on drop
@@ -83,8 +96,12 @@ fn main() {
     /* Initialize ImGui */
     let mut imgui = imgui::Context::create();
     let mut imgui_sdl = imgui_sdl2::ImguiSdl2::new(&mut imgui, &window);
-    let imgui_renderer =
-        imgui_opengl_renderer::Renderer::new(&mut imgui, |s| sdl_video.gl_get_proc_address(s) as _);
+    let get_proc_address = |s| sdl_video.gl_get_proc_address(s) as _;
+    let imgui_renderer = imgui_opengl_renderer::Renderer::new(&mut imgui, get_proc_address);
+
+    /* Setup example OpenGL triangle */
+    let mut game_renderer = rendering::Renderer::new();
+    rendering::setup_triangle_program(&mut game_renderer);
 
     let mut event_pump = sdl.event_pump().unwrap();
     'main_loop: loop {
@@ -103,10 +120,7 @@ fn main() {
             }
         }
 
-        /* Game update */
-        // ..
-
-        /* ImGui update */
+        /* Update */
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let ui = imgui.frame();
         if let Some(window) = ui.window("Example Window").begin() {
@@ -115,14 +129,7 @@ fn main() {
         };
 
         /* Render */
-        unsafe {
-            gl::ClearColor(0.2, 0.2, 0.2, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-
-        /* Game render */
-
-        /* ImGui render */
+        game_renderer.render();
         imgui_sdl.prepare_render(&ui, &window);
         imgui_renderer.render(&mut imgui);
 

@@ -1,0 +1,168 @@
+use gl::types::*;
+use std::ffi::CString;
+
+const VERTEX_SHADER_SRC: &str = include_str!("triangle.vert");
+const FRAGMENT_SHADER_SRC: &str = include_str!("triangle.frag");
+
+pub struct Renderer {
+    vertex_shader: u32,
+    fragment_shader: u32,
+    shader_program: u32,
+    vertex_array_object: u32,
+}
+
+impl Renderer {
+    pub fn new() -> Self {
+        let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
+        let fragment_shader = compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER);
+        let shader_program = link_program(vertex_shader, fragment_shader);
+        let mut vertex_array_object = u32::default();
+
+        unsafe {
+            gl::GenVertexArrays(1, &mut vertex_array_object);
+        }
+
+        Renderer {
+            vertex_shader,
+            fragment_shader,
+            shader_program,
+            vertex_array_object,
+        }
+    }
+
+    pub fn render(&self) {
+        unsafe {
+            gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            gl::UseProgram(self.shader_program);
+            gl::BindVertexArray(self.vertex_array_object);
+            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+        }
+    }
+}
+
+impl Drop for Renderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteProgram(self.shader_program);
+            gl::DeleteShader(self.fragment_shader);
+            gl::DeleteShader(self.vertex_shader);
+            gl::DeleteBuffers(1, &self.vertex_array_object);
+            gl::DeleteVertexArrays(1, &self.vertex_array_object);
+        }
+    }
+}
+
+pub fn setup_triangle_program(game_renderer: &mut Renderer) {
+    unsafe {
+        // Setup vertices for a triangle
+        #[rustfmt::skip]
+        let vertex_data: [GLfloat; 9] = [
+            -0.5, -0.5, 0.0,
+            0.5, -0.5, 0.0,
+            0.0,  0.5, 0.0,
+        ];
+
+        // Create a Vertex Buffer Object and copy vertex data into it
+        gl::BindVertexArray(game_renderer.vertex_array_object);
+        let mut vertex_buffer_object = 0;
+        gl::GenBuffers(1, &mut vertex_buffer_object);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (vertex_data.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
+            std::mem::transmute(&vertex_data[0]),
+            gl::STATIC_DRAW,
+        );
+
+        // Setup fragment output
+        let out_variable_name = CString::new("frag_color").unwrap();
+        gl::BindFragDataLocation(game_renderer.shader_program, 0, out_variable_name.as_ptr());
+
+        // Specify layout of vertex data
+        let pos_attr_name = CString::new("pos").unwrap();
+        let pos_attr =
+            gl::GetAttribLocation(game_renderer.shader_program, pos_attr_name.as_ptr()) as GLuint;
+        gl::EnableVertexAttribArray(pos_attr);
+        let should_normalize_floats = gl::FALSE as GLboolean;
+        let attribute_size = 3;
+        gl::VertexAttribPointer(
+            pos_attr,
+            attribute_size,
+            gl::FLOAT,
+            should_normalize_floats,
+            0,
+            std::ptr::null(),
+        );
+    }
+}
+
+fn compile_shader(src: &str, ty: GLenum) -> GLuint {
+    let shader;
+    unsafe {
+        shader = gl::CreateShader(ty);
+        // Attempt to compile the shader
+        let c_str = CString::new(src.as_bytes()).unwrap();
+        gl::ShaderSource(shader, 1, &c_str.as_ptr(), std::ptr::null());
+        gl::CompileShader(shader);
+
+        // Get the compile status
+        let mut status = gl::FALSE as GLint;
+        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
+
+        // Fail on error
+        if status != (gl::TRUE as GLint) {
+            let mut len = 0;
+            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
+            let mut buf = Vec::with_capacity(len as usize);
+            buf.set_len((len as usize) - 1); // subtract 1 to skip the trailing null character
+            gl::GetShaderInfoLog(
+                shader,
+                len,
+                std::ptr::null_mut(),
+                buf.as_mut_ptr() as *mut GLchar,
+            );
+            panic!(
+                "{}",
+                std::str::from_utf8(&buf)
+                    .ok()
+                    .expect("ShaderInfoLog not valid utf8")
+            );
+        }
+    }
+    shader
+}
+
+fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
+    unsafe {
+        let program = gl::CreateProgram();
+        gl::AttachShader(program, vs);
+        gl::AttachShader(program, fs);
+        gl::LinkProgram(program);
+        // Get the link status
+        let mut status = gl::FALSE as GLint;
+        gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
+
+        // Fail on error
+        if status != (gl::TRUE as GLint) {
+            let mut len: GLint = 0;
+            gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
+            let mut buf = Vec::with_capacity(len as usize);
+            buf.set_len((len as usize) - 1); // subtract 1 to skip the trailing null character
+            gl::GetProgramInfoLog(
+                program,
+                len,
+                std::ptr::null_mut(),
+                buf.as_mut_ptr() as *mut GLchar,
+            );
+            panic!(
+                "{}",
+                std::str::from_utf8(&buf)
+                    .ok()
+                    .expect("ProgramInfoLog not valid utf8")
+            );
+        }
+        program
+    }
+}
