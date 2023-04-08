@@ -2,6 +2,8 @@ use std::path::Path;
 
 use configparser::ini::Ini;
 use glow::HasContext;
+use imgui_glow_renderer::AutoRenderer;
+use imgui_sdl2_support::SdlPlatform;
 use sdl2::keyboard::Keycode;
 use sdl2::VideoSubsystem;
 use sdl2::{event::Event, video::Window};
@@ -70,24 +72,32 @@ fn main() {
 
         let shader_program = gl.create_program().expect("Cannot create shader program");
 
-        let vertex_shader_source = r#"const vec2 verts[3] = vec2[3](
+        let vertex_shader_source = r#"
+            #version 330
+
+            const vec2 verts[3] = vec2[3](
                 vec2(0.5f, 1.0f),
                 vec2(0.0f, 0.0f),
                 vec2(1.0f, 0.0f)
             );
             out vec2 vert;
+
             void main() {
                 vert = verts[gl_VertexID];
                 gl_Position = vec4(vert - 0.5, 0.0, 1.0);
-            }"#;
-        let fragment_shader_source = r#"precision mediump float;
+            }
+        "#;
+        let fragment_shader_source = r#"
+            #version 330
+
+            precision mediump float;
             in vec2 vert;
             out vec4 color;
+
             void main() {
                 color = vec4(vert, 0.5, 1.0);
-            }"#;
-
-        let shader_version = "#version 130";
+            }
+        "#;
 
         let shader_sources = [
             (glow::VERTEX_SHADER, vertex_shader_source),
@@ -100,7 +110,7 @@ fn main() {
             let shader = gl
                 .create_shader(*shader_type)
                 .expect("Cannot create shader");
-            gl.shader_source(shader, &format!("{}\n{}", shader_version, shader_source));
+            gl.shader_source(shader, shader_source);
             gl.compile_shader(shader);
             if !gl.get_shader_compile_status(shader) {
                 panic!("{}", gl.get_shader_info_log(shader));
@@ -121,17 +131,32 @@ fn main() {
 
         gl.use_program(Some(shader_program));
 
+        gl.clear_color(0.0, 0.5, 0.5, 1.0);
+
         (shader_program, vertex_array)
     };
 
-    unsafe {
-        gl.clear_color(0.0, 0.5, 0.5, 1.0);
-    }
+    /* Initialize ImGui */
+    let mut imgui_context = imgui::Context::create();
+    imgui_context.set_ini_filename(None);
+    imgui_context.set_log_filename(None);
+    imgui_context
+        .fonts()
+        .add_font(&[imgui::FontSource::DefaultFontData { config: None }]);
+    let mut imgui_platform = SdlPlatform::init(&mut imgui_context);
 
     let mut event_pump = sdl.event_pump().unwrap();
+    let renderer = match AutoRenderer::initialize(gl, &mut imgui_context) {
+        Ok(renderer) => renderer,
+        Err(e) => {
+            panic!("{}", e.to_string())
+        }
+    };
+
     'main_loop: loop {
         /* Input */
         for event in event_pump.poll_iter() {
+            imgui_platform.handle_event(&mut imgui_context, &event);
             match event {
                 Event::Quit { .. } => break 'main_loop,
                 Event::KeyDown { keycode, .. } => match keycode {
@@ -148,19 +173,28 @@ fn main() {
         // ..
 
         /* ImGui update */
+        if false {
+            imgui_platform.prepare_frame(&mut imgui_context, &window, &event_pump);
+            let ui = imgui_context.new_frame();
+            if let Some(window) = ui.window("Example Window").begin() {
+                ui.text("Window is visible");
+                window.end();
+            };
+        }
 
         /* Game render */
         unsafe {
+            let gl = renderer.gl_context();
             gl.clear(glow::COLOR_BUFFER_BIT);
             gl.draw_arrays(glow::TRIANGLES, 0, 3);
         }
 
         /* ImGui render */
-
         window.gl_swap_window();
     }
 
     unsafe {
+        let gl = renderer.gl_context();
         gl.delete_program(shader_program);
         gl.delete_vertex_array(vertex_array);
     }
