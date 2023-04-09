@@ -1,5 +1,5 @@
 use gl::types::*;
-use std::ffi::CString;
+use std::{ffi::CString, mem::size_of};
 
 use crate::game_state::GameState;
 
@@ -55,16 +55,10 @@ impl Renderer {
         }
     }
 
-    pub fn render(&self, game_state: &GameState) {
+    pub fn render(&self, _game_state: &GameState) {
         unsafe {
             gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
             gl::Clear(gl::COLOR_BUFFER_BIT);
-
-            let uniform_name = CString::new("color_uniform").unwrap();
-            let uniform_location =
-                gl::GetUniformLocation(self.shader_programs[0], uniform_name.as_ptr());
-            gl::UseProgram(self.shader_programs[0]);
-            gl::Uniform4f(uniform_location, 0.0, game_state.green, 0.0, 1.0);
 
             gl::UseProgram(self.shader_programs[0]);
             gl::BindVertexArray(self.vertex_array_objects[0]);
@@ -76,13 +70,7 @@ impl Renderer {
         }
     }
 
-    fn add_vertex_buffer_object(
-        &self,
-        program_index: usize,
-        vao_index: usize,
-        vertices: &[VertexData],
-        attribute_name: &str,
-    ) -> u32 {
+    fn add_vertex_buffer_object(&self, vao_index: usize, vertices: &[VertexData]) -> u32 {
         unsafe {
             // create buffer object
             gl::BindVertexArray(self.vertex_array_objects[vao_index]);
@@ -91,28 +79,36 @@ impl Renderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (vertices.len() * std::mem::size_of::<VertexData>()) as GLsizeiptr,
+                (vertices.len() * size_of::<VertexData>()) as GLsizeiptr,
                 std::mem::transmute(&vertices[0]),
                 gl::STATIC_DRAW,
             );
 
-            // setup buffer attributes
-            let attribute_name = CString::new(attribute_name).unwrap();
-            let pos_attr =
-                gl::GetAttribLocation(self.shader_programs[program_index], attribute_name.as_ptr())
-                    as GLuint;
-            gl::EnableVertexAttribArray(pos_attr);
-            let should_normalize_floats = gl::FALSE as GLboolean;
-            let attribute_size = 3;
-            let attribute_stride = 6 * std::mem::size_of::<GLfloat>() as i32;
-            gl::VertexAttribPointer(
-                pos_attr,
-                attribute_size,
-                gl::FLOAT,
-                should_normalize_floats,
-                attribute_stride,
-                std::ptr::null(),
-            );
+            // configure position attribute
+            {
+                gl::VertexAttribPointer(
+                    0,
+                    3,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    size_of::<VertexData>().try_into().unwrap(),
+                    0 as *const _,
+                );
+                gl::EnableVertexAttribArray(0);
+            }
+
+            // configure color attribute
+            {
+                gl::VertexAttribPointer(
+                    1,
+                    3,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    6 * size_of::<GLfloat>() as i32,
+                    (3 * size_of::<GLfloat>()) as *const _,
+                );
+                gl::EnableVertexAttribArray(1);
+            }
 
             vertex_buffer_object
         }
@@ -155,7 +151,7 @@ pub fn setup_triangle_program(game_renderer: &mut Renderer) {
             VertexData::new(Position(-0.5, -0.5, 0.0), Color(0.0, 0.0, 1.0)),
         ];
 
-        game_renderer.add_vertex_buffer_object(0, 0, &triangle_1, "pos");
+        game_renderer.add_vertex_buffer_object(0, &triangle_1);
 
         // Setup fragment output
         let frag_data_name = CString::new("frag_color").unwrap();

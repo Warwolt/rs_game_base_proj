@@ -107,14 +107,11 @@ fn main() {
 
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
-    let mut game_state = game_state::GameState {
-        green_t: 0,
-        green: 0.0,
-    };
+    let game_state = game_state::GameState {};
     'main_loop: loop {
         /* Input */
         let time_now = SystemTime::now();
-        let delta_time_ms = time_now.duration_since(prev_time).unwrap().as_millis();
+        let _delta_time_ms = time_now.duration_since(prev_time).unwrap().as_millis();
         prev_time = time_now;
 
         for event in event_pump.poll_iter() {
@@ -132,19 +129,10 @@ fn main() {
         }
 
         /* Update */
-        // animate triangle color
-        {
-            let green_period_ms = 2000;
-            game_state.green_t += delta_time_ms;
-            game_state.green_t = game_state.green_t % green_period_ms;
-            let animation_freq = (1.0 / green_period_ms as f32) * 2.0 * std::f32::consts::PI;
-            game_state.green = 0.5 * f32::sin(game_state.green_t as f32 * animation_freq) + 0.5;
-        }
-
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let ui = imgui.frame();
         if let Some(window) = ui.window("Example Window").begin() {
-            ui.text(format!("game_state.green: {:.2}", game_state.green));
+            ui.text("Hello Triangle");
             window.end();
         };
 
