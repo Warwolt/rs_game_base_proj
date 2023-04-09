@@ -14,6 +14,19 @@ pub struct Renderer {
     vertex_array_objects: [u32; 2],
 }
 
+struct Position(f32, f32, f32);
+struct _Color(f32, f32, f32);
+
+#[allow(dead_code)]
+struct VertexData {
+    x: GLfloat,
+    y: GLfloat,
+    z: GLfloat,
+    // r: GLfloat,
+    // g: GLfloat,
+    // b: GLfloat,
+}
+
 impl Renderer {
     pub fn new() -> Self {
         let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
@@ -67,7 +80,7 @@ impl Renderer {
         &self,
         program_index: usize,
         vao_index: usize,
-        vertices: &[GLfloat],
+        vertices: &[VertexData],
         attribute_name: &str,
     ) -> u32 {
         unsafe {
@@ -77,7 +90,7 @@ impl Renderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (vertices.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
+                (vertices.len() * std::mem::size_of::<VertexData>()) as GLsizeiptr,
                 std::mem::transmute(&vertices[0]),
                 gl::STATIC_DRAW,
             );
@@ -124,12 +137,21 @@ impl Drop for Renderer {
     }
 }
 
+impl VertexData {
+    fn new(Position(x, y, z): Position) -> Self {
+        VertexData { x, y, z }
+    }
+}
+
 pub fn setup_triangle_program(game_renderer: &mut Renderer) {
     unsafe {
-        let triangle_1: [GLfloat; 3 * 3] = [
-            0.0, 0.5, 0.0, // top right
-            0.5, -0.5, 0.0, // bottom right
-            -0.5, -0.5, 0.0, // bottom left
+        let triangle_1: [VertexData; 3] = [
+            // top right
+            VertexData::new(Position(0.0, 0.5, 0.0)),
+            // bottom right
+            VertexData::new(Position(0.5, -0.5, 0.0)),
+            // bottom left
+            VertexData::new(Position(-0.5, -0.5, 0.0)),
         ];
 
         game_renderer.add_vertex_buffer_object(0, 0, &triangle_1, "pos");

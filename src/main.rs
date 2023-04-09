@@ -132,11 +132,14 @@ fn main() {
         }
 
         /* Update */
-        let green_period_ms = 2000;
-        game_state.green_t += delta_time_ms;
-        game_state.green_t = game_state.green_t % green_period_ms;
-        let animation_freq = (1.0 / green_period_ms as f32) * 2.0 * std::f32::consts::PI;
-        game_state.green = 0.5 * f32::sin(game_state.green_t as f32 * animation_freq) + 0.5;
+        // animate triangle color
+        {
+            let green_period_ms = 2000;
+            game_state.green_t += delta_time_ms;
+            game_state.green_t = game_state.green_t % green_period_ms;
+            let animation_freq = (1.0 / green_period_ms as f32) * 2.0 * std::f32::consts::PI;
+            game_state.green = 0.5 * f32::sin(game_state.green_t as f32 * animation_freq) + 0.5;
+        }
 
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let ui = imgui.frame();
