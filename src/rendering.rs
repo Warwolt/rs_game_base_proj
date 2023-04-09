@@ -3,9 +3,9 @@ use std::{ffi::CString, mem::size_of};
 
 use crate::game_state::GameState;
 
-const VERTEX_SHADER_SRC: &str = include_str!("shader.vert");
-const FRAGMENT_SHADER_SRC: &str = include_str!("shader.frag");
-const FRAGMENT_SHADER_2_SRC: &str = include_str!("shader2.frag");
+const VERTEX_SHADER_SRC: &str = include_str!("vertex.glsl");
+const FRAGMENT_SHADER_SRC: &str = include_str!("fragment.glsl");
+const FRAGMENT_SHADER_2_SRC: &str = include_str!("fragment2.glsl");
 
 pub struct Renderer {
     vertex_shader: u32,
