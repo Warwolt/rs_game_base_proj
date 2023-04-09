@@ -3,19 +3,26 @@ use std::ffi::CString;
 
 const VERTEX_SHADER_SRC: &str = include_str!("shader.vert");
 const FRAGMENT_SHADER_SRC: &str = include_str!("shader.frag");
+const FRAGMENT_SHADER_2_SRC: &str = include_str!("shader2.frag");
 
 pub struct Renderer {
     vertex_shader: u32,
-    fragment_shader: u32,
-    shader_program: u32,
+    fragment_shaders: [u32; 2],
+    shader_programs: [u32; 2],
     vertex_array_objects: [u32; 2],
 }
 
 impl Renderer {
     pub fn new() -> Self {
         let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
-        let fragment_shader = compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER);
-        let shader_program = link_program(vertex_shader, fragment_shader);
+        let fragment_shaders = [
+            compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER),
+            compile_shader(FRAGMENT_SHADER_2_SRC, gl::FRAGMENT_SHADER),
+        ];
+        let shader_programs = [
+            link_program(vertex_shader, fragment_shaders[0]),
+            link_program(vertex_shader, fragment_shaders[1]),
+        ];
         let mut vertex_array_objects = [u32::default(); 2];
 
         unsafe {
@@ -27,8 +34,8 @@ impl Renderer {
 
         Renderer {
             vertex_shader,
-            fragment_shader,
-            shader_program,
+            fragment_shaders,
+            shader_programs,
             vertex_array_objects,
         }
     }
@@ -38,9 +45,11 @@ impl Renderer {
             gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            gl::UseProgram(self.shader_program);
+            gl::UseProgram(self.shader_programs[0]);
             gl::BindVertexArray(self.vertex_array_objects[0]);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
+
+            gl::UseProgram(self.shader_programs[1]);
             gl::BindVertexArray(self.vertex_array_objects[1]);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
@@ -48,6 +57,7 @@ impl Renderer {
 
     fn add_vertex_buffer_object(
         &self,
+        program_index: usize,
         vao_index: usize,
         vertices: &[GLfloat],
         attribute_name: &str,
@@ -65,7 +75,8 @@ impl Renderer {
             );
             let attribute_name = CString::new(attribute_name).unwrap();
             let pos_attr =
-                gl::GetAttribLocation(self.shader_program, attribute_name.as_ptr()) as GLuint;
+                gl::GetAttribLocation(self.shader_programs[program_index], attribute_name.as_ptr())
+                    as GLuint;
             gl::EnableVertexAttribArray(pos_attr);
             let should_normalize_floats = gl::FALSE as GLboolean;
             let attribute_size = 3;
@@ -86,8 +97,12 @@ impl Renderer {
 impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteProgram(self.shader_program);
-            gl::DeleteShader(self.fragment_shader);
+            for program in self.shader_programs {
+                gl::DeleteProgram(program);
+            }
+            for fragment_shader in self.fragment_shaders {
+                gl::DeleteShader(fragment_shader);
+            }
             gl::DeleteShader(self.vertex_shader);
             gl::DeleteBuffers(
                 self.vertex_array_objects.len() as i32,
@@ -114,12 +129,12 @@ pub fn setup_triangle_program(game_renderer: &mut Renderer) {
             -0.5, 0.5, 0.0, // top left
         ];
 
-        game_renderer.add_vertex_buffer_object(0, &triangle_1, "pos");
-        game_renderer.add_vertex_buffer_object(1, &triangle_2, "pos");
+        game_renderer.add_vertex_buffer_object(0, 0, &triangle_1, "pos");
+        game_renderer.add_vertex_buffer_object(1, 1, &triangle_2, "pos");
 
         // Setup fragment output
-        let out_variable_name = CString::new("frag_color").unwrap();
-        gl::BindFragDataLocation(game_renderer.shader_program, 0, out_variable_name.as_ptr());
+        let frag_data_name = CString::new("frag_color").unwrap();
+        gl::BindFragDataLocation(game_renderer.shader_programs[0], 0, frag_data_name.as_ptr());
     }
 }
 
