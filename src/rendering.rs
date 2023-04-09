@@ -1,6 +1,8 @@
 use gl::types::*;
 use std::ffi::CString;
 
+use crate::game_state::GameState;
+
 const VERTEX_SHADER_SRC: &str = include_str!("shader.vert");
 const FRAGMENT_SHADER_SRC: &str = include_str!("shader.frag");
 const FRAGMENT_SHADER_2_SRC: &str = include_str!("shader2.frag");
@@ -40,13 +42,16 @@ impl Renderer {
         }
     }
 
-    pub fn render(&self, _delta_time_ms: u128) {
+    pub fn render(&self, game_state: &GameState) {
         unsafe {
             gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            // TODO: modify color in GameState and pass that into the render function
-            // modify color
+            let uniform_name = CString::new("color_uniform").unwrap();
+            let uniform_location =
+                gl::GetUniformLocation(self.shader_programs[0], uniform_name.as_ptr());
+            gl::UseProgram(self.shader_programs[0]);
+            gl::Uniform4f(uniform_location, 0.0, game_state.green, 0.0, 1.0);
 
             gl::UseProgram(self.shader_programs[0]);
             gl::BindVertexArray(self.vertex_array_objects[0]);
@@ -122,18 +127,12 @@ impl Drop for Renderer {
 pub fn setup_triangle_program(game_renderer: &mut Renderer) {
     unsafe {
         let triangle_1: [GLfloat; 3 * 3] = [
-            0.5, 0.5, 0.0, // top right
-            0.5, -0.5, 0.0, // bottom right
-            -0.5, 0.5, 0.0, // top left
-        ];
-        let triangle_2: [GLfloat; 3 * 3] = [
+            0.0, 0.5, 0.0, // top right
             0.5, -0.5, 0.0, // bottom right
             -0.5, -0.5, 0.0, // bottom left
-            -0.5, 0.5, 0.0, // top left
         ];
 
         game_renderer.add_vertex_buffer_object(0, 0, &triangle_1, "pos");
-        game_renderer.add_vertex_buffer_object(1, 1, &triangle_2, "pos");
 
         // Setup fragment output
         let frag_data_name = CString::new("frag_color").unwrap();
