@@ -8,7 +8,7 @@ pub struct Renderer {
     vertex_shader: u32,
     fragment_shader: u32,
     shader_program: u32,
-    vertex_array_object: u32,
+    vertex_array_objects: [u32; 2],
 }
 
 impl Renderer {
@@ -16,17 +16,20 @@ impl Renderer {
         let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
         let fragment_shader = compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER);
         let shader_program = link_program(vertex_shader, fragment_shader);
-        let mut vertex_array_object = u32::default();
+        let mut vertex_array_objects = [u32::default(); 2];
 
         unsafe {
-            gl::GenVertexArrays(1, &mut vertex_array_object);
+            gl::GenVertexArrays(
+                vertex_array_objects.len() as i32,
+                vertex_array_objects.as_mut_ptr(),
+            );
         }
 
         Renderer {
             vertex_shader,
             fragment_shader,
             shader_program,
-            vertex_array_object,
+            vertex_array_objects,
         }
     }
 
@@ -36,7 +39,7 @@ impl Renderer {
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
             gl::UseProgram(self.shader_program);
-            gl::BindVertexArray(self.vertex_array_object);
+            gl::BindVertexArray(self.vertex_array_objects[0]);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
             gl::DrawArrays(gl::TRIANGLES, 3, 3);
         }
@@ -49,8 +52,14 @@ impl Drop for Renderer {
             gl::DeleteProgram(self.shader_program);
             gl::DeleteShader(self.fragment_shader);
             gl::DeleteShader(self.vertex_shader);
-            gl::DeleteBuffers(1, &self.vertex_array_object);
-            gl::DeleteVertexArrays(1, &self.vertex_array_object);
+            gl::DeleteBuffers(
+                self.vertex_array_objects.len() as i32,
+                self.vertex_array_objects.as_ptr(),
+            );
+            gl::DeleteVertexArrays(
+                self.vertex_array_objects.len() as i32,
+                self.vertex_array_objects.as_ptr(),
+            );
         }
     }
 }
@@ -70,7 +79,7 @@ pub fn setup_triangle_program(game_renderer: &mut Renderer) {
         ];
 
         // Create a Vertex Buffer Object and copy vertex data into it
-        gl::BindVertexArray(game_renderer.vertex_array_object);
+        gl::BindVertexArray(game_renderer.vertex_array_objects[0]);
         let mut vertex_buffer_object = 0;
         gl::GenBuffers(1, &mut vertex_buffer_object);
         gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
