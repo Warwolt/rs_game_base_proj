@@ -15,16 +15,16 @@ pub struct Renderer {
 }
 
 struct Position(f32, f32, f32);
-struct _Color(f32, f32, f32);
+struct Color(f32, f32, f32);
 
 #[allow(dead_code)]
 struct VertexData {
     x: GLfloat,
     y: GLfloat,
     z: GLfloat,
-    // r: GLfloat,
-    // g: GLfloat,
-    // b: GLfloat,
+    r: GLfloat,
+    g: GLfloat,
+    b: GLfloat,
 }
 
 impl Renderer {
@@ -84,6 +84,7 @@ impl Renderer {
         attribute_name: &str,
     ) -> u32 {
         unsafe {
+            // create buffer object
             gl::BindVertexArray(self.vertex_array_objects[vao_index]);
             let mut vertex_buffer_object = u32::default();
             gl::GenBuffers(1, &mut vertex_buffer_object);
@@ -94,6 +95,8 @@ impl Renderer {
                 std::mem::transmute(&vertices[0]),
                 gl::STATIC_DRAW,
             );
+
+            // setup buffer attributes
             let attribute_name = CString::new(attribute_name).unwrap();
             let pos_attr =
                 gl::GetAttribLocation(self.shader_programs[program_index], attribute_name.as_ptr())
@@ -101,12 +104,13 @@ impl Renderer {
             gl::EnableVertexAttribArray(pos_attr);
             let should_normalize_floats = gl::FALSE as GLboolean;
             let attribute_size = 3;
+            let attribute_stride = 6 * std::mem::size_of::<GLfloat>() as i32;
             gl::VertexAttribPointer(
                 pos_attr,
                 attribute_size,
                 gl::FLOAT,
                 should_normalize_floats,
-                0,
+                attribute_stride,
                 std::ptr::null(),
             );
 
@@ -138,20 +142,17 @@ impl Drop for Renderer {
 }
 
 impl VertexData {
-    fn new(Position(x, y, z): Position) -> Self {
-        VertexData { x, y, z }
+    fn new(Position(x, y, z): Position, Color(r, g, b): Color) -> Self {
+        VertexData { x, y, z, r, g, b }
     }
 }
 
 pub fn setup_triangle_program(game_renderer: &mut Renderer) {
     unsafe {
         let triangle_1: [VertexData; 3] = [
-            // top right
-            VertexData::new(Position(0.0, 0.5, 0.0)),
-            // bottom right
-            VertexData::new(Position(0.5, -0.5, 0.0)),
-            // bottom left
-            VertexData::new(Position(-0.5, -0.5, 0.0)),
+            VertexData::new(Position(0.0, 0.5, 0.0), Color(1.0, 0.0, 0.0)),
+            VertexData::new(Position(0.5, -0.5, 0.0), Color(0.0, 1.0, 0.0)),
+            VertexData::new(Position(-0.5, -0.5, 0.0), Color(0.0, 0.0, 1.0)),
         ];
 
         game_renderer.add_vertex_buffer_object(0, 0, &triangle_1, "pos");
