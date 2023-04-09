@@ -41,7 +41,8 @@ impl Renderer {
             gl::UseProgram(self.shader_program);
             gl::BindVertexArray(self.vertex_array_objects[0]);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
-            gl::DrawArrays(gl::TRIANGLES, 3, 3);
+            gl::BindVertexArray(self.vertex_array_objects[1]);
+            gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
     }
 }
@@ -67,37 +68,57 @@ impl Drop for Renderer {
 pub fn setup_triangle_program(game_renderer: &mut Renderer) {
     unsafe {
         // Setup vertices for a triangle
-        let vertex_data: [GLfloat; 3 * 6] = [
-            // first triangle
+        let triangle_1: [GLfloat; 3 * 3] = [
             0.5, 0.5, 0.0, // top right
             0.5, -0.5, 0.0, // bottom right
             -0.5, 0.5, 0.0, // top left
-            // second triangle
+        ];
+        let triangle_2: [GLfloat; 3 * 3] = [
             0.5, -0.5, 0.0, // bottom right
             -0.5, -0.5, 0.0, // bottom left
             -0.5, 0.5, 0.0, // top left
         ];
 
-        // Create a Vertex Buffer Object and copy vertex data into it
-        gl::BindVertexArray(game_renderer.vertex_array_objects[0]);
-        let mut vertex_buffer_object = 0;
-        gl::GenBuffers(1, &mut vertex_buffer_object);
-        gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (vertex_data.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
-            std::mem::transmute(&vertex_data[0]),
-            gl::STATIC_DRAW,
+        create_vertex_buffer_object(
+            game_renderer.shader_program,
+            game_renderer.vertex_array_objects[0],
+            &triangle_1,
+            "pos",
+        );
+
+        create_vertex_buffer_object(
+            game_renderer.shader_program,
+            game_renderer.vertex_array_objects[1],
+            &triangle_2,
+            "pos",
         );
 
         // Setup fragment output
         let out_variable_name = CString::new("frag_color").unwrap();
         gl::BindFragDataLocation(game_renderer.shader_program, 0, out_variable_name.as_ptr());
+    }
+}
 
-        // Specify layout of vertex data
-        let pos_attr_name = CString::new("pos").unwrap();
-        let pos_attr =
-            gl::GetAttribLocation(game_renderer.shader_program, pos_attr_name.as_ptr()) as GLuint;
+// TODO move into the Renderer struct
+fn create_vertex_buffer_object(
+    shader_program: u32,
+    vertex_array: u32,
+    vertices: &[GLfloat],
+    attribute_name: &str,
+) -> u32 {
+    unsafe {
+        gl::BindVertexArray(vertex_array);
+        let mut vertex_buffer_object = u32::default();
+        gl::GenBuffers(1, &mut vertex_buffer_object);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (vertices.len() * std::mem::size_of::<GLfloat>()) as GLsizeiptr,
+            std::mem::transmute(&vertices[0]),
+            gl::STATIC_DRAW,
+        );
+        let attribute_name = CString::new(attribute_name).unwrap();
+        let pos_attr = gl::GetAttribLocation(shader_program, attribute_name.as_ptr()) as GLuint;
         gl::EnableVertexAttribArray(pos_attr);
         let should_normalize_floats = gl::FALSE as GLboolean;
         let attribute_size = 3;
@@ -109,6 +130,8 @@ pub fn setup_triangle_program(game_renderer: &mut Renderer) {
             0,
             std::ptr::null(),
         );
+
+        vertex_buffer_object
     }
 }
 
