@@ -1,8 +1,8 @@
 use gl::types::*;
 use std::ffi::CString;
 
-const VERTEX_SHADER_SRC: &str = include_str!("triangle.vert");
-const FRAGMENT_SHADER_SRC: &str = include_str!("triangle.frag");
+const VERTEX_SHADER_SRC: &str = include_str!("shader.vert");
+const FRAGMENT_SHADER_SRC: &str = include_str!("shader.frag");
 
 pub struct Renderer {
     vertex_shader: u32,
@@ -38,6 +38,7 @@ impl Renderer {
             gl::UseProgram(self.shader_program);
             gl::BindVertexArray(self.vertex_array_object);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::DrawArrays(gl::TRIANGLES, 3, 3);
         }
     }
 }
@@ -57,11 +58,15 @@ impl Drop for Renderer {
 pub fn setup_triangle_program(game_renderer: &mut Renderer) {
     unsafe {
         // Setup vertices for a triangle
-        #[rustfmt::skip]
-        let vertex_data: [GLfloat; 9] = [
-            -0.5, -0.5, 0.0,
-            0.5, -0.5, 0.0,
-            0.0,  0.5, 0.0,
+        let vertex_data: [GLfloat; 3 * 6] = [
+            // first triangle
+            0.5, 0.5, 0.0, // top right
+            0.5, -0.5, 0.0, // bottom right
+            -0.5, 0.5, 0.0, // top left
+            // second triangle
+            0.5, -0.5, 0.0, // bottom right
+            -0.5, -0.5, 0.0, // bottom left
+            -0.5, 0.5, 0.0, // top left
         ];
 
         // Create a Vertex Buffer Object and copy vertex data into it

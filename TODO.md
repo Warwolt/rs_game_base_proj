@@ -1,4 +1,5 @@
 # TODO list
+- [ ] update loop with delta time
 - [ ] input methods
   - [ ] keyboard
   - [ ] mouse
