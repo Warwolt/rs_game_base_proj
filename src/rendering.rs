@@ -40,10 +40,13 @@ impl Renderer {
         }
     }
 
-    pub fn render(&self) {
+    pub fn render(&self, _delta_time_ms: u128) {
         unsafe {
             gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
             gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            // TODO: modify color in GameState and pass that into the render function
+            // modify color
 
             gl::UseProgram(self.shader_programs[0]);
             gl::BindVertexArray(self.vertex_array_objects[0]);

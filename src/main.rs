@@ -109,7 +109,7 @@ fn main() {
     'main_loop: loop {
         /* Input */
         let time_now = SystemTime::now();
-        let _delta_time_ms = time_now.duration_since(prev_time).unwrap().as_millis();
+        let delta_time_ms = time_now.duration_since(prev_time).unwrap().as_millis();
         prev_time = time_now;
 
         for event in event_pump.poll_iter() {
@@ -135,7 +135,7 @@ fn main() {
         };
 
         /* Render */
-        game_renderer.render();
+        game_renderer.render(delta_time_ms);
         imgui_sdl.prepare_render(&ui, &window);
         imgui_renderer.render(&mut imgui);
 
