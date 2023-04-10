@@ -180,11 +180,11 @@ pub fn setup_shader_program(game_renderer: &mut Renderer) {
         #[rustfmt::skip]
         let line_vertices: [VertexData; 12] = [
             // horizontal white line
-            VertexData::new(Position(rect_x - 0.5, rect_y - 0.5, 0.0), white),
-            VertexData::new(Position(rect_x + rect_w, rect_y, 0.0), white),
+            VertexData::new(Position(rect_x, rect_y - 0.5, 0.0), white),
+            VertexData::new(Position(rect_x + rect_w - 1.0, rect_y, 0.0), white),
             // vertical white line
             VertexData::new(Position(rect_x, rect_y - 0.5, 0.0), white),
-            VertexData::new(Position(rect_x, rect_y + rect_h, 0.0), white),
+            VertexData::new(Position(rect_x, rect_y + rect_h - 1.0, 0.0), white),
 
             // horizontal grey line
             VertexData::new(Position(rect_x + 0.5, rect_y + rect_h - 1.0, 0.0), dark_grey),
@@ -194,10 +194,10 @@ pub fn setup_shader_program(game_renderer: &mut Renderer) {
             VertexData::new(Position(rect_x + rect_w - 1.0, rect_y - 0.5 + rect_h - 1.0, 0.0), dark_grey),
 
             // horizontal black line
-            VertexData::new(Position(rect_x, rect_y + rect_h, 0.0), black),
-            VertexData::new(Position(rect_x + rect_w, rect_y + rect_h, 0.0), black),
+            VertexData::new(Position(rect_x - 0.5, rect_y + rect_h, 0.0), black),
+            VertexData::new(Position(rect_x - 0.5 + rect_w, rect_y + rect_h, 0.0), black),
             // vertical black line
-            VertexData::new(Position(rect_x + rect_w, rect_y, 0.0), black),
+            VertexData::new(Position(rect_x + rect_w, rect_y - 0.5, 0.0), black),
             VertexData::new(Position(rect_x + rect_w, rect_y + rect_h, 0.0), black),
         ];
 
