@@ -8,10 +8,14 @@ const VERTEX_SHADER_SRC: &str = include_str!("vertex.shader");
 const FRAGMENT_SHADER_SRC: &str = include_str!("fragment.shader");
 
 pub struct Renderer {
+    shader_programs: [ShaderProgram; 1],
+    vertex_array_objects: [u32; 1],
+}
+
+struct ShaderProgram {
+    id: u32,
     vertex_shader: u32,
-    fragment_shaders: [u32; 1],
-    shader_programs: [u32; 1],
-    vertex_array_objects: [u32; 2],
+    fragment_shader: u32,
 }
 
 /// xyz
@@ -31,10 +35,8 @@ struct VertexData {
 
 impl Renderer {
     pub fn new() -> Self {
-        let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
-        let fragment_shaders = [compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER)];
-        let shader_programs = [link_program(vertex_shader, fragment_shaders[0])];
-        let mut vertex_array_objects = [u32::default(); 2];
+        let shader_programs = [ShaderProgram::new(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)];
+        let mut vertex_array_objects = [u32::default(); 1];
 
         unsafe {
             gl::GenVertexArrays(
@@ -44,8 +46,6 @@ impl Renderer {
         }
 
         Renderer {
-            vertex_shader,
-            fragment_shaders,
             shader_programs,
             vertex_array_objects,
         }
@@ -54,7 +54,7 @@ impl Renderer {
     pub fn set_window_size(&self, width: u32, height: u32) {
         let projection = Mat4::orthographic_lh(0.0, width as f32, 0.0, height as f32, -1.0, 1.0);
         unsafe {
-            let shader = self.shader_programs[0];
+            let shader = self.shader_programs[0].id;
             let projection_name = CString::new("projection").unwrap();
             gl::UseProgram(shader);
             let location = gl::GetUniformLocation(shader, projection_name.as_ptr());
@@ -67,7 +67,7 @@ impl Renderer {
             gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            gl::UseProgram(self.shader_programs[0]);
+            gl::UseProgram(self.shader_programs[0].id);
             gl::BindVertexArray(self.vertex_array_objects[0]);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
@@ -121,13 +121,6 @@ impl Renderer {
 impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
-            for program in self.shader_programs {
-                gl::DeleteProgram(program);
-            }
-            for fragment_shader in self.fragment_shaders {
-                gl::DeleteShader(fragment_shader);
-            }
-            gl::DeleteShader(self.vertex_shader);
             gl::DeleteBuffers(
                 self.vertex_array_objects.len() as i32,
                 self.vertex_array_objects.as_ptr(),
@@ -136,6 +129,29 @@ impl Drop for Renderer {
                 self.vertex_array_objects.len() as i32,
                 self.vertex_array_objects.as_ptr(),
             );
+        }
+    }
+}
+
+impl ShaderProgram {
+    fn new(vertex_shader_src: &str, fragment_shader_src: &str) -> Self {
+        let vertex_shader = compile_shader(vertex_shader_src, gl::VERTEX_SHADER);
+        let fragment_shader = compile_shader(fragment_shader_src, gl::FRAGMENT_SHADER);
+        let id = link_program(vertex_shader, fragment_shader);
+        Self {
+            vertex_shader,
+            fragment_shader,
+            id,
+        }
+    }
+}
+
+impl Drop for ShaderProgram {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteProgram(self.id);
+            gl::DeleteShader(self.fragment_shader);
+            gl::DeleteShader(self.vertex_shader);
         }
     }
 }
@@ -158,7 +174,11 @@ pub fn setup_triangle_program(game_renderer: &mut Renderer) {
 
         // Setup fragment output
         let frag_data_name = CString::new("frag_color").unwrap();
-        gl::BindFragDataLocation(game_renderer.shader_programs[0], 0, frag_data_name.as_ptr());
+        gl::BindFragDataLocation(
+            game_renderer.shader_programs[0].id,
+            0,
+            frag_data_name.as_ptr(),
+        );
     }
 }
 
