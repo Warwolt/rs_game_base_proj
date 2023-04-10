@@ -10,11 +10,15 @@ use crate::game_state::GameState;
 const VERTEX_SHADER_SRC: &str = include_str!("vertex.shader");
 const FRAGMENT_SHADER_SRC: &str = include_str!("fragment.shader");
 
+#[derive(Debug)]
 pub struct Renderer {
-    shader_programs: Vec<ShaderProgram>,
-    vertex_array_objects: Vec<u32>,
+    shader_program: ShaderProgram,
+    triangle_vao: u32,
+    triangle_ebo: u32,
+    line_vao: u32,
 }
 
+#[derive(Debug)]
 struct ShaderProgram {
     id: u32,
     vertex_shader: u32,
@@ -22,9 +26,11 @@ struct ShaderProgram {
 }
 
 /// xyz
+#[derive(Debug, Copy, Clone)]
 struct Position(f32, f32, f32);
 /// rgb
-struct Color(f32, f32, f32);
+#[derive(Debug, Copy, Clone)]
+struct RGBColor(u8, u8, u8);
 
 #[allow(dead_code)]
 struct VertexData {
@@ -39,63 +45,42 @@ struct VertexData {
 impl Renderer {
     pub fn new() -> Self {
         Renderer {
-            shader_programs: vec![ShaderProgram::new(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)],
-            vertex_array_objects: Vec::new(),
+            shader_program: ShaderProgram::new(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC),
+            triangle_vao: u32::default(),
+            triangle_ebo: u32::default(),
+            line_vao: u32::default(),
         }
     }
 
     pub fn set_window_size(&self, width: u32, height: u32) {
         let projection = Mat4::orthographic_lh(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
         unsafe {
-            let shader = self.shader_programs[0].id;
             let projection_name = CString::new("projection").unwrap();
-            gl::UseProgram(shader);
-            let location = gl::GetUniformLocation(shader, projection_name.as_ptr());
+            gl::UseProgram(self.shader_program.id);
+            let location = gl::GetUniformLocation(self.shader_program.id, projection_name.as_ptr());
             gl::UniformMatrix4fv(location, 1, gl::FALSE, &projection.to_cols_array()[0]);
         }
     }
 
     pub fn render(&self, _game_state: &GameState) {
         unsafe {
-            gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
+            gl::ClearColor(0.0, 129.0 / 255.0, 129.0 / 255.0, 1.0); // set background
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            // To draw a win95 button:
-            // - draw one rectangle (4 vertices, 2 triangles)
-            // - draw two white lines for highlight (3 vertices, 2 lines)
-            // - draw two grey lines for shadow (3 vertices, 2 lines)
-            // - draw two black lines for outline (3 vertices, 2 lines)
-
-            // triangles go in one VAO
-            // lines go in another VAO
-
-            gl::UseProgram(self.shader_programs[0].id);
-            gl::BindVertexArray(self.vertex_array_objects[0]);
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
+            gl::UseProgram(self.shader_program.id);
+            gl::BindVertexArray(self.triangle_vao);
+            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, 0 as *const _);
+            gl::BindVertexArray(self.line_vao);
+            gl::DrawArrays(gl::LINES, 0, 12);
         }
-    }
-
-    fn add_vertex_array_object(&mut self) -> u32 {
-        let mut vao = u32::default();
-        unsafe {
-            gl::GenVertexArrays(1, &mut vao as *mut u32);
-        }
-        self.vertex_array_objects.push(vao);
-        vao
     }
 }
 
 impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteBuffers(
-                self.vertex_array_objects.len() as i32,
-                self.vertex_array_objects.as_ptr(),
-            );
-            gl::DeleteVertexArrays(
-                self.vertex_array_objects.len() as i32,
-                self.vertex_array_objects.as_ptr(),
-            );
+            gl::DeleteBuffers(1, &self.triangle_vao);
+            gl::DeleteVertexArrays(1, &self.triangle_vao);
         }
     }
 }
@@ -124,8 +109,15 @@ impl Drop for ShaderProgram {
 }
 
 impl VertexData {
-    fn new(Position(x, y, z): Position, Color(r, g, b): Color) -> Self {
-        VertexData { x, y, z, r, g, b }
+    fn new(Position(x, y, z): Position, RGBColor(r, g, b): RGBColor) -> Self {
+        VertexData {
+            x: x as f32,
+            y: y as f32,
+            z: z as f32,
+            r: r as f32 / 255.0,
+            g: g as f32 / 255.0,
+            b: b as f32 / 255.0,
+        }
     }
 
     fn bind_vbo_to_vao(vbo: u32, vao: u32) {
@@ -160,25 +152,77 @@ impl VertexData {
     }
 }
 
-pub fn setup_triangle_program(game_renderer: &mut Renderer) {
+pub fn setup_shader_program(game_renderer: &mut Renderer) {
     unsafe {
-        let triangle_1: [VertexData; 3] = [
-            VertexData::new(Position(400.0, 150.0, 0.0), Color(1.0, 0.0, 0.0)),
-            VertexData::new(Position(600.0, 450.0, 0.0), Color(0.0, 1.0, 0.0)),
-            VertexData::new(Position(200.0, 450.0, 0.0), Color(0.0, 0.0, 1.0)),
+        let (screen_w, screen_h) = (800.0, 600.0);
+        let (rect_w, rect_h) = (92.0, 24.0);
+        let rect_x = (screen_w - rect_w) / 2.0;
+        let rect_y = (screen_h - rect_h) / 2.0;
+
+        // button triangles
+        let grey = RGBColor(194, 194, 194);
+        let rectangle_vertices: [VertexData; 4] = [
+            VertexData::new(Position(rect_x, rect_y, 0.0), grey),
+            VertexData::new(Position(rect_x + rect_w, rect_y, 0.0), grey),
+            VertexData::new(Position(rect_x, rect_y + rect_h, 0.0), grey),
+            VertexData::new(Position(rect_x + rect_w, rect_y + rect_h, 0.0), grey),
+        ];
+        let rectangle_indices: [(GLuint, GLuint, GLuint); 2] = [(0, 1, 2), (1, 2, 3)];
+
+        // FIXME: We have to offset the coordinates in order to not get missing pixels
+        // this needs to be kept in mind when a "draw_line" function is written.
+        // This might be fixable with "gl::MatrixMode"
+        // http://factor-language.blogspot.com/2008/11/some-recent-ui-rendering-fixes.html
+        // https://www.khronos.org/opengl/wiki/Viewing_and_Transformations#How_do_I_draw_2D_controls_over_my_3D_rendering?
+        let white = RGBColor(255, 255, 255);
+        let dark_grey = RGBColor(129, 129, 129);
+        let black = RGBColor(0, 0, 0);
+        #[rustfmt::skip]
+        let line_vertices: [VertexData; 12] = [
+            // horizontal white line
+            VertexData::new(Position(rect_x - 0.5, rect_y - 0.5, 0.0), white),
+            VertexData::new(Position(rect_x + rect_w, rect_y, 0.0), white),
+            // vertical white line
+            VertexData::new(Position(rect_x, rect_y - 0.5, 0.0), white),
+            VertexData::new(Position(rect_x, rect_y + rect_h, 0.0), white),
+
+            // horizontal grey line
+            VertexData::new(Position(rect_x + 0.5, rect_y + rect_h - 1.0, 0.0), dark_grey),
+            VertexData::new(Position(rect_x + rect_w - 1.0, rect_y + rect_h - 1.0, 0.0), dark_grey),
+            // vertical grey line
+            VertexData::new(Position(rect_x + rect_w - 1.0, rect_y - 0.5 + 1.0, 0.0), dark_grey),
+            VertexData::new(Position(rect_x + rect_w - 1.0, rect_y - 0.5 + rect_h - 1.0, 0.0), dark_grey),
+
+            // horizontal black line
+            VertexData::new(Position(rect_x, rect_y + rect_h, 0.0), black),
+            VertexData::new(Position(rect_x + rect_w, rect_y + rect_h, 0.0), black),
+            // vertical black line
+            VertexData::new(Position(rect_x + rect_w, rect_y, 0.0), black),
+            VertexData::new(Position(rect_x + rect_w, rect_y + rect_h, 0.0), black),
         ];
 
-        let vao = game_renderer.add_vertex_array_object();
-        let vbo = make_vertex_buffer_object(&triangle_1);
-        VertexData::bind_vbo_to_vao(vbo, vao);
+        // bind rectangle
+        {
+            let vao = new_vao();
+            let vbo = new_vbo(&rectangle_vertices);
+            let ebo = new_ebo(vao);
+            VertexData::bind_vbo_to_vao(vbo, vao);
+            bind_ebo_to_vao(ebo, vao, &rectangle_indices);
+            game_renderer.triangle_vao = vao;
+            game_renderer.triangle_ebo = ebo;
+        }
+
+        // bind lines
+        {
+            let vao = new_vao();
+            let vbo = new_vbo(&line_vertices);
+            VertexData::bind_vbo_to_vao(vbo, vao);
+            game_renderer.line_vao = vao;
+        }
 
         // Setup fragment output
         let frag_data_name = CString::new("frag_color").unwrap();
-        gl::BindFragDataLocation(
-            game_renderer.shader_programs[0].id,
-            0,
-            frag_data_name.as_ptr(),
-        );
+        gl::BindFragDataLocation(game_renderer.shader_program.id, 0, frag_data_name.as_ptr());
     }
 }
 
@@ -251,17 +295,51 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
     }
 }
 
-fn make_vertex_buffer_object(data: &[VertexData]) -> u32 {
+fn size_of_buf<T>(buf: &[T]) -> usize {
+    buf.len() * size_of::<T>()
+}
+
+fn new_vbo<T>(data: &[T]) -> u32 {
     let mut vbo = u32::default();
     unsafe {
         gl::GenBuffers(1, &mut vbo);
         gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (data.len() * size_of::<VertexData>()) as GLsizeiptr,
+            size_of_buf(data) as _,
             data as *const _ as *const c_void,
+            gl::STATIC_DRAW,
+        )
+    }
+    vbo
+}
+
+fn new_vao() -> u32 {
+    let mut vao = u32::default();
+    unsafe {
+        gl::GenVertexArrays(1, &mut vao);
+    }
+    vao
+}
+
+fn new_ebo(vao: u32) -> u32 {
+    let mut ebo = u32::default();
+    unsafe {
+        gl::BindVertexArray(vao);
+        gl::GenBuffers(1, &mut ebo);
+    }
+    ebo
+}
+
+fn bind_ebo_to_vao<T>(ebo: u32, vao: u32, indices: &[T]) {
+    unsafe {
+        gl::BindVertexArray(vao);
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            size_of_buf(indices) as GLsizeiptr,
+            indices as *const _ as *const c_void,
             gl::STATIC_DRAW,
         );
     }
-    vbo
 }

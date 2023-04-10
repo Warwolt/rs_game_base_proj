@@ -113,7 +113,7 @@ fn main() {
     /* Setup example OpenGL triangle */
     let mut game_renderer = rendering::Renderer::new();
     game_renderer.set_window_size(window_width, window_height);
-    rendering::setup_triangle_program(&mut game_renderer);
+    rendering::setup_shader_program(&mut game_renderer);
 
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
@@ -142,7 +142,7 @@ fn main() {
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let ui = imgui.frame();
         if let Some(window) = ui.window("Example Window").begin() {
-            ui.text("Hello Triangle");
+            ui.text("Hello Win95 Button");
             window.end();
         };
 
