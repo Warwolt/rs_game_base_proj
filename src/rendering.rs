@@ -4,14 +4,13 @@ use std::{ffi::CString, mem::size_of};
 
 use crate::game_state::GameState;
 
-const VERTEX_SHADER_SRC: &str = include_str!("vertex.glsl");
-const FRAGMENT_SHADER_SRC: &str = include_str!("fragment.glsl");
-const FRAGMENT_SHADER_2_SRC: &str = include_str!("fragment2.glsl");
+const VERTEX_SHADER_SRC: &str = include_str!("vertex.shader");
+const FRAGMENT_SHADER_SRC: &str = include_str!("fragment.shader");
 
 pub struct Renderer {
     vertex_shader: u32,
-    fragment_shaders: [u32; 2],
-    shader_programs: [u32; 2],
+    fragment_shaders: [u32; 1],
+    shader_programs: [u32; 1],
     vertex_array_objects: [u32; 2],
 }
 
@@ -33,14 +32,8 @@ struct VertexData {
 impl Renderer {
     pub fn new() -> Self {
         let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
-        let fragment_shaders = [
-            compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER),
-            compile_shader(FRAGMENT_SHADER_2_SRC, gl::FRAGMENT_SHADER),
-        ];
-        let shader_programs = [
-            link_program(vertex_shader, fragment_shaders[0]),
-            link_program(vertex_shader, fragment_shaders[1]),
-        ];
+        let fragment_shaders = [compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER)];
+        let shader_programs = [link_program(vertex_shader, fragment_shaders[0])];
         let mut vertex_array_objects = [u32::default(); 2];
 
         unsafe {
