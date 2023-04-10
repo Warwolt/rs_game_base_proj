@@ -1,6 +1,9 @@
 use gl::types::*;
 use glam::Mat4;
-use std::{ffi::CString, mem::size_of};
+use std::{
+    ffi::{c_void, CString},
+    mem::size_of,
+};
 
 use crate::game_state::GameState;
 
@@ -8,8 +11,8 @@ const VERTEX_SHADER_SRC: &str = include_str!("vertex.shader");
 const FRAGMENT_SHADER_SRC: &str = include_str!("fragment.shader");
 
 pub struct Renderer {
-    shader_programs: [ShaderProgram; 1],
-    vertex_array_objects: [u32; 1],
+    shader_programs: Vec<ShaderProgram>,
+    vertex_array_objects: Vec<u32>,
 }
 
 struct ShaderProgram {
@@ -35,24 +38,14 @@ struct VertexData {
 
 impl Renderer {
     pub fn new() -> Self {
-        let shader_programs = [ShaderProgram::new(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)];
-        let mut vertex_array_objects = [u32::default(); 1];
-
-        unsafe {
-            gl::GenVertexArrays(
-                vertex_array_objects.len() as i32,
-                vertex_array_objects.as_mut_ptr(),
-            );
-        }
-
         Renderer {
-            shader_programs,
-            vertex_array_objects,
+            shader_programs: vec![ShaderProgram::new(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)],
+            vertex_array_objects: Vec::new(),
         }
     }
 
     pub fn set_window_size(&self, width: u32, height: u32) {
-        let projection = Mat4::orthographic_lh(0.0, width as f32, 0.0, height as f32, -1.0, 1.0);
+        let projection = Mat4::orthographic_lh(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
         unsafe {
             let shader = self.shader_programs[0].id;
             let projection_name = CString::new("projection").unwrap();
@@ -67,63 +60,28 @@ impl Renderer {
             gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
+            // To draw a win95 button:
+            // - draw one rectangle (4 vertices, 2 triangles)
+            // - draw two white lines for highlight (3 vertices, 2 lines)
+            // - draw two grey lines for shadow (3 vertices, 2 lines)
+            // - draw two black lines for outline (3 vertices, 2 lines)
+
+            // triangles go in one VAO
+            // lines go in another VAO
+
             gl::UseProgram(self.shader_programs[0].id);
             gl::BindVertexArray(self.vertex_array_objects[0]);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
     }
 
-    fn add_vertex_buffer_object(&self, vao_index: usize, vertices: &[VertexData]) -> u32 {
+    fn add_vertex_array_object(&mut self) -> u32 {
+        let mut vao = u32::default();
         unsafe {
-            // create buffer object
-            gl::BindVertexArray(self.vertex_array_objects[vao_index]);
-            let mut vertex_buffer_object = u32::default();
-            gl::GenBuffers(1, &mut vertex_buffer_object);
-            gl::BindBuffer(gl::ARRAY_BUFFER, vertex_buffer_object);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (vertices.len() * size_of::<VertexData>()) as GLsizeiptr,
-                std::mem::transmute(&vertices[0]),
-                gl::STATIC_DRAW,
-            );
-
-            //
-            // Note: This config is assuming the location of the position and
-            // color attribute, but if we're assuming that we rely on a specific
-            // shader, so shouldn't this function be part of the ShaderProgram
-            // struct?
-            //
-
-            // configure position attribute
-            {
-                let position_location = 0;
-                gl::VertexAttribPointer(
-                    position_location,
-                    3,
-                    gl::FLOAT,
-                    gl::FALSE,
-                    size_of::<VertexData>().try_into().unwrap(),
-                    0 as *const _,
-                );
-                gl::EnableVertexAttribArray(0);
-            }
-
-            // configure color attribute
-            {
-                let color_location = 1;
-                gl::VertexAttribPointer(
-                    color_location,
-                    3,
-                    gl::FLOAT,
-                    gl::FALSE,
-                    6 * size_of::<GLfloat>() as i32,
-                    (3 * size_of::<GLfloat>()) as *const _,
-                );
-                gl::EnableVertexAttribArray(1);
-            }
-
-            vertex_buffer_object
+            gl::GenVertexArrays(1, &mut vao as *mut u32);
         }
+        self.vertex_array_objects.push(vao);
+        vao
     }
 }
 
@@ -169,17 +127,50 @@ impl VertexData {
     fn new(Position(x, y, z): Position, Color(r, g, b): Color) -> Self {
         VertexData { x, y, z, r, g, b }
     }
+
+    fn bind_vbo_to_vao(vbo: u32, vao: u32) {
+        unsafe {
+            gl::BindVertexArray(vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+
+            let position_location = 0;
+            let color_location = 1;
+
+            gl::VertexAttribPointer(
+                position_location,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<VertexData>().try_into().unwrap(),
+                (0 * size_of::<GLfloat>()) as *const _,
+            );
+
+            gl::VertexAttribPointer(
+                color_location,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                6 * size_of::<GLfloat>() as i32,
+                (3 * size_of::<GLfloat>()) as *const _,
+            );
+
+            gl::EnableVertexAttribArray(0);
+            gl::EnableVertexAttribArray(1);
+        }
+    }
 }
 
 pub fn setup_triangle_program(game_renderer: &mut Renderer) {
     unsafe {
         let triangle_1: [VertexData; 3] = [
-            VertexData::new(Position(400.0, 450.0, 0.0), Color(1.0, 0.0, 0.0)),
-            VertexData::new(Position(600.0, 150.0, 0.0), Color(0.0, 1.0, 0.0)),
-            VertexData::new(Position(200.0, 150.0, 0.0), Color(0.0, 0.0, 1.0)),
+            VertexData::new(Position(400.0, 150.0, 0.0), Color(1.0, 0.0, 0.0)),
+            VertexData::new(Position(600.0, 450.0, 0.0), Color(0.0, 1.0, 0.0)),
+            VertexData::new(Position(200.0, 450.0, 0.0), Color(0.0, 0.0, 1.0)),
         ];
 
-        game_renderer.add_vertex_buffer_object(0, &triangle_1);
+        let vao = game_renderer.add_vertex_array_object();
+        let vbo = make_vertex_buffer_object(&triangle_1);
+        VertexData::bind_vbo_to_vao(vbo, vao);
 
         // Setup fragment output
         let frag_data_name = CString::new("frag_color").unwrap();
@@ -258,4 +249,19 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
         }
         program
     }
+}
+
+fn make_vertex_buffer_object(data: &[VertexData]) -> u32 {
+    let mut vbo = u32::default();
+    unsafe {
+        gl::GenBuffers(1, &mut vbo);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (data.len() * size_of::<VertexData>()) as GLsizeiptr,
+            data as *const _ as *const c_void,
+            gl::STATIC_DRAW,
+        );
+    }
+    vbo
 }
