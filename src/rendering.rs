@@ -1,4 +1,5 @@
 use gl::types::*;
+use glam::Mat4;
 use std::{ffi::CString, mem::size_of};
 
 use crate::game_state::GameState;
@@ -14,7 +15,9 @@ pub struct Renderer {
     vertex_array_objects: [u32; 2],
 }
 
+/// xyz
 struct Position(f32, f32, f32);
+/// rgb
 struct Color(f32, f32, f32);
 
 #[allow(dead_code)]
@@ -55,6 +58,17 @@ impl Renderer {
         }
     }
 
+    pub fn set_window_size(&self, width: u32, height: u32) {
+        let projection = Mat4::orthographic_lh(0.0, width as f32, 0.0, height as f32, -1.0, 1.0);
+        unsafe {
+            let shader = self.shader_programs[0];
+            let projection_name = CString::new("projection").unwrap();
+            gl::UseProgram(shader);
+            let location = gl::GetUniformLocation(shader, projection_name.as_ptr());
+            gl::UniformMatrix4fv(location, 1, gl::FALSE, &projection.to_cols_array()[0]);
+        }
+    }
+
     pub fn render(&self, _game_state: &GameState) {
         unsafe {
             gl::ClearColor(0.0, 0.5, 0.5, 1.0); // set background
@@ -62,10 +76,6 @@ impl Renderer {
 
             gl::UseProgram(self.shader_programs[0]);
             gl::BindVertexArray(self.vertex_array_objects[0]);
-            gl::DrawArrays(gl::TRIANGLES, 0, 3);
-
-            gl::UseProgram(self.shader_programs[1]);
-            gl::BindVertexArray(self.vertex_array_objects[1]);
             gl::DrawArrays(gl::TRIANGLES, 0, 3);
         }
     }
@@ -146,9 +156,9 @@ impl VertexData {
 pub fn setup_triangle_program(game_renderer: &mut Renderer) {
     unsafe {
         let triangle_1: [VertexData; 3] = [
-            VertexData::new(Position(0.0, 0.5, 0.0), Color(1.0, 0.0, 0.0)),
-            VertexData::new(Position(0.5, -0.5, 0.0), Color(0.0, 1.0, 0.0)),
-            VertexData::new(Position(-0.5, -0.5, 0.0), Color(0.0, 0.0, 1.0)),
+            VertexData::new(Position(400.0, 450.0, 0.0), Color(1.0, 0.0, 0.0)),
+            VertexData::new(Position(600.0, 150.0, 0.0), Color(0.0, 1.0, 0.0)),
+            VertexData::new(Position(200.0, 150.0, 0.0), Color(0.0, 0.0, 1.0)),
         ];
 
         game_renderer.add_vertex_buffer_object(0, &triangle_1);

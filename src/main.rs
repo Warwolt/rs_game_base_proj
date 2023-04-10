@@ -76,6 +76,9 @@ fn init_opengl(window: &Window) -> GLContext {
 }
 
 fn main() {
+    let window_width = 800;
+    let window_height = 600;
+
     /* Initialize logging */
     init_logging();
 
@@ -89,7 +92,13 @@ fn main() {
     /* Initialize SDL */
     let sdl = sdl2::init().unwrap();
     let sdl_video = init_video(&sdl);
-    let window = init_window(&sdl_video, "Base Project", 800, 600, Monitor(1));
+    let window = init_window(
+        &sdl_video,
+        "Base Project",
+        window_width,
+        window_height,
+        Monitor(1),
+    );
 
     /* Initialize OpenGL */
     let _gl_context = init_opengl(&window); // closes on drop
@@ -103,6 +112,7 @@ fn main() {
 
     /* Setup example OpenGL triangle */
     let mut game_renderer = rendering::Renderer::new();
+    game_renderer.set_window_size(window_width, window_height);
     rendering::setup_triangle_program(&mut game_renderer);
 
     let mut event_pump = sdl.event_pump().unwrap();
