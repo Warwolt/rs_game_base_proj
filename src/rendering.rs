@@ -87,10 +87,18 @@ impl Renderer {
                 gl::STATIC_DRAW,
             );
 
+            //
+            // Note: This config is assuming the location of the position and
+            // color attribute, but if we're assuming that we rely on a specific
+            // shader, so shouldn't this function be part of the ShaderProgram
+            // struct?
+            //
+
             // configure position attribute
             {
+                let position_location = 0;
                 gl::VertexAttribPointer(
-                    0,
+                    position_location,
                     3,
                     gl::FLOAT,
                     gl::FALSE,
@@ -102,8 +110,9 @@ impl Renderer {
 
             // configure color attribute
             {
+                let color_location = 1;
                 gl::VertexAttribPointer(
-                    1,
+                    color_location,
                     3,
                     gl::FLOAT,
                     gl::FALSE,
