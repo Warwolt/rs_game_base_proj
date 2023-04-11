@@ -22,3 +22,7 @@ simple_logger = "4.1.0"
 
 # Serialization
 configparser = "3.0.2"
+
+# Application Icon
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
