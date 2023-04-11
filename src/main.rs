@@ -185,14 +185,12 @@ fn main() {
         for event in event_pump.poll_iter() {
             imgui_sdl.handle_event(&mut imgui, &event);
             input.mouse.handle_event(&event);
+
             match event {
                 Event::Quit { .. } => break 'main_loop,
-                Event::KeyDown { keycode, .. } => match keycode {
-                    Some(Keycode::Escape) => {
-                        break 'main_loop;
-                    }
-                    _ => {}
-                },
+                Event::KeyDown { keycode, .. } if keycode == Some(Keycode::Escape) => {
+                    break 'main_loop
+                }
                 _ => {}
             }
         }
