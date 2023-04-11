@@ -197,6 +197,8 @@ fn main() {
         input.mouse.update();
 
         /* Update */
+        renderer.clear();
+
         // draw background
         renderer.set_draw_color(0, 129, 129);
         renderer.draw_rect_fill(0, 0, window_width, window_height);
@@ -230,7 +232,6 @@ fn main() {
         renderer.render();
         imgui_sdl.prepare_render(&dev_ui, &window);
         imgui_renderer.render(&mut imgui);
-        renderer.clear();
 
         window.gl_swap_window();
     }
