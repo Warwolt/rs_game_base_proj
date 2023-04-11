@@ -219,6 +219,10 @@ fn main() {
                 "Mouse pos: ({},{})",
                 input.mouse.pos.x, input.mouse.pos.y
             ));
+            dev_ui.text(format!(
+                "Mouse left button pressed: {}",
+                input.mouse.left_button.is_pressed()
+            ));
             window.end();
         };
 
