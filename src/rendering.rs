@@ -153,6 +153,13 @@ impl VertexData {
 }
 
 pub fn setup_shader_program(game_renderer: &mut Renderer) {
+    //
+    // TODO: Write an SDL-style drawing API so that this win95 button can be
+    // defined outside of the rendering module.
+    //
+    // Functions like renderer.draw_rect_fill(x, y, w, h) and
+    // renderer.draw_line(x0, y0, x1, y1) and renderer.set_draw_color(r, g, b)
+    //
     unsafe {
         let (screen_w, screen_h) = (800.0, 600.0);
         let (rect_w, rect_h) = (92.0, 24.0);

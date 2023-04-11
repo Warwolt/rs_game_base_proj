@@ -110,7 +110,7 @@ fn main() {
     let get_proc_address = |s| sdl_video.gl_get_proc_address(s) as _;
     let imgui_renderer = imgui_opengl_renderer::Renderer::new(&mut imgui, get_proc_address);
 
-    /* Setup example OpenGL triangle */
+    /* Setup rendering */
     let mut game_renderer = rendering::Renderer::new();
     game_renderer.set_window_size(window_width, window_height);
     rendering::setup_shader_program(&mut game_renderer);
@@ -139,16 +139,36 @@ fn main() {
         }
 
         /* Update */
+        // let ui = game_renderer.frame();
+        // // draw win95 button
+        // {
+        //     ui.set_draw_color(grey.r, grey.g, grey.b, grey.a);
+        //     ui.draw_rect_fill(r.x, r.y, r.w, r.h);
+
+        //     ui.set_draw_color(white.r, white.g, white.b, white.a);
+        //     ui.draw_line(l1.x0, l1.y0, l1.x1, l1.y1);
+        //     ui.draw_line(l2.x0, l2.y0, l2.x1, l2.y1);
+
+        //     ui.set_draw_color(dark_grey.r, dark_grey.g, dark_grey.b, dark_grey.a);
+        //     ui.draw_line(l3.x0, l3.y0, l3.x1, l3.y1);
+        //     ui.draw_line(l4.x0, l4.y0, l4.x1, l4.y1);
+
+        //     ui.set_draw_color(black.r, black.g, black.b, black.a);
+        //     ui.draw_line(l5.x0, l5.y0, l5.x1, l5.y1);
+        //     ui.draw_line(l6.x0, l6.y0, l6.x1, l6.y1);
+        // }
+
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
-        let ui = imgui.frame();
-        if let Some(window) = ui.window("Example Window").begin() {
-            ui.text("Hello Win95 Button");
+        let dev_ui = imgui.frame();
+        if let Some(window) = dev_ui.window("Example Window").begin() {
+            dev_ui.text("Hello Win95 Button");
             window.end();
         };
 
         /* Render */
+        // game_renderer.render(&ui);
         game_renderer.render(&game_state);
-        imgui_sdl.prepare_render(&ui, &window);
+        imgui_sdl.prepare_render(&dev_ui, &window);
         imgui_renderer.render(&mut imgui);
 
         window.gl_swap_window();
