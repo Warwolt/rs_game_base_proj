@@ -4,14 +4,15 @@ extern crate imgui_opengl_renderer;
 extern crate imgui_sdl2;
 extern crate sdl2;
 
-mod game_state;
 mod rendering;
 
 use std::path::Path;
 use std::str;
 
 use configparser::ini::Ini;
+use rendering::Renderer;
 use sdl2::keyboard::Keycode;
+use sdl2::mouse::MouseButton;
 use sdl2::video::GLContext;
 use sdl2::VideoSubsystem;
 use sdl2::{
@@ -20,6 +21,13 @@ use sdl2::{
 };
 use simple_logger::SimpleLogger;
 use std::time::SystemTime;
+
+struct Rect {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+}
 
 const CONFIG_FILE: &str = "config.ini";
 
@@ -75,6 +83,43 @@ fn init_opengl(window: &Window) -> GLContext {
     return gl_context;
 }
 
+#[rustfmt::skip]
+fn draw_button(renderer: &mut Renderer, rect: Rect, pressed: bool) {
+    let white = (255, 255, 255);
+    let light_grey = (223, 223, 223);
+    let grey = (194, 194, 194);
+    let dark_grey = (129, 129, 129);
+    let black = (0, 0, 0);
+
+    let top_outline = if pressed { black } else { white };
+    let top_highlight = if pressed { dark_grey } else { light_grey };
+    let bottom_outline = if pressed { white } else { black };
+    let bottom_highlight = if pressed { light_grey } else { dark_grey };
+
+    // button body
+    renderer.set_draw_color(grey.0, grey.1, grey.2);
+    renderer.draw_rect_fill(rect.x, rect.y, rect.w, rect.h);
+
+    // top outline
+    renderer.set_draw_color(top_outline.0, top_outline.1, top_outline.2);
+    renderer.draw_line(rect.x, rect.y, rect.x, rect.y + rect.h);
+    renderer.draw_line(rect.x, rect.y, rect.x + rect.w, rect.y);
+
+    // top highlight
+    renderer.set_draw_color(top_highlight.0, top_highlight.1, top_highlight.2);
+    renderer.draw_line(rect.x + 1, rect.y + 1, rect.x + 1, rect.y + rect.h - 1);
+    renderer.draw_line(rect.x + 1, rect.y + 1, rect.x + rect.w - 1, rect.y);
+
+    // bottom outline
+    renderer.set_draw_color(bottom_outline.0, bottom_outline.1, bottom_outline.2);
+    renderer.draw_line(rect.x + rect.w, rect.y, rect.x + rect.w, rect.y + rect.h);
+    renderer.draw_line(rect.x, rect.y + rect.h, rect.x + rect.w, rect.y + rect.h);
+
+    // bottom highlight
+    renderer.set_draw_color(bottom_highlight.0, bottom_highlight.1, bottom_highlight.2);
+    renderer.draw_line(rect.x + rect.w - 1, rect.y + 1, rect.x + rect.w - 1, rect.y + rect.h - 1);
+    renderer.draw_line(rect.x + 1, rect.y + rect.h - 1, rect.x + rect.w - 1, rect.y + rect.h - 1);}
+
 fn main() {
     let window_width = 800;
     let window_height = 600;
@@ -111,13 +156,12 @@ fn main() {
     let imgui_renderer = imgui_opengl_renderer::Renderer::new(&mut imgui, get_proc_address);
 
     /* Setup rendering */
-    let mut game_renderer = rendering::Renderer::new();
-    game_renderer.set_window_size(window_width, window_height);
-    rendering::setup_shader_program(&mut game_renderer);
+    let mut renderer = rendering::Renderer::new();
+    renderer.on_window_resize(window_width, window_height);
 
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
-    let game_state = game_state::GameState {};
+    let mut left_mouse_pressed = false;
     'main_loop: loop {
         /* Input */
         let time_now = SystemTime::now();
@@ -134,29 +178,32 @@ fn main() {
                     }
                     _ => {}
                 },
+                Event::MouseButtonDown { mouse_btn, .. } => {
+                    if mouse_btn == MouseButton::Left {
+                        left_mouse_pressed = true;
+                    }
+                }
+                Event::MouseButtonUp { mouse_btn, .. } => {
+                    if mouse_btn == MouseButton::Left {
+                        left_mouse_pressed = false;
+                    }
+                }
                 _ => {}
             }
         }
 
         /* Update */
-        // let ui = game_renderer.frame();
-        // // draw win95 button
-        // {
-        //     ui.set_draw_color(grey.r, grey.g, grey.b, grey.a);
-        //     ui.draw_rect_fill(r.x, r.y, r.w, r.h);
+        // draw background
+        renderer.set_draw_color(0, 129, 129);
+        renderer.draw_rect_fill(0, 0, window_width, window_height);
 
-        //     ui.set_draw_color(white.r, white.g, white.b, white.a);
-        //     ui.draw_line(l1.x0, l1.y0, l1.x1, l1.y1);
-        //     ui.draw_line(l2.x0, l2.y0, l2.x1, l2.y1);
-
-        //     ui.set_draw_color(dark_grey.r, dark_grey.g, dark_grey.b, dark_grey.a);
-        //     ui.draw_line(l3.x0, l3.y0, l3.x1, l3.y1);
-        //     ui.draw_line(l4.x0, l4.y0, l4.x1, l4.y1);
-
-        //     ui.set_draw_color(black.r, black.g, black.b, black.a);
-        //     ui.draw_line(l5.x0, l5.y0, l5.x1, l5.y1);
-        //     ui.draw_line(l6.x0, l6.y0, l6.x1, l6.y1);
-        // }
+        let button_rect = Rect {
+            w: 75,
+            h: 23,
+            x: (window_width - 75) / 2,
+            y: (window_height - 23) / 2,
+        };
+        draw_button(&mut renderer, button_rect, left_mouse_pressed);
 
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();
@@ -166,10 +213,10 @@ fn main() {
         };
 
         /* Render */
-        // game_renderer.render(&ui);
-        game_renderer.render(&game_state);
+        renderer.render();
         imgui_sdl.prepare_render(&dev_ui, &window);
         imgui_renderer.render(&mut imgui);
+        renderer.clear();
 
         window.gl_swap_window();
     }
