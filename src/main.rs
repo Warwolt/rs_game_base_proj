@@ -4,15 +4,16 @@ extern crate imgui_opengl_renderer;
 extern crate imgui_sdl2;
 extern crate sdl2;
 
+mod input;
 mod rendering;
 
 use std::path::Path;
 use std::str;
 
 use configparser::ini::Ini;
+use input::InputDevices;
 use rendering::Renderer;
 use sdl2::keyboard::Keycode;
-use sdl2::mouse::MouseButton;
 use sdl2::video::GLContext;
 use sdl2::VideoSubsystem;
 use sdl2::{
@@ -22,6 +23,7 @@ use sdl2::{
 use simple_logger::SimpleLogger;
 use std::time::SystemTime;
 
+#[derive(Debug, Clone, Copy)]
 struct Rect {
     x: u32,
     y: u32,
@@ -93,7 +95,7 @@ fn draw_button(renderer: &mut Renderer, rect: Rect, pressed: bool) {
 
     let top_outline = if pressed { black } else { white };
     let top_highlight = if pressed { dark_grey } else { light_grey };
-    let bottom_outline = if pressed { white } else { black };
+    let bottom_outline = if pressed { black } else { black };
     let bottom_highlight = if pressed { light_grey } else { dark_grey };
 
     // button body
@@ -118,7 +120,17 @@ fn draw_button(renderer: &mut Renderer, rect: Rect, pressed: bool) {
     // bottom highlight
     renderer.set_draw_color(bottom_highlight.0, bottom_highlight.1, bottom_highlight.2);
     renderer.draw_line(rect.x + rect.w - 1, rect.y + 1, rect.x + rect.w - 1, rect.y + rect.h - 1);
-    renderer.draw_line(rect.x + 1, rect.y + rect.h - 1, rect.x + rect.w - 1, rect.y + rect.h - 1);}
+    renderer.draw_line(rect.x + 1, rect.y + rect.h - 1, rect.x + rect.w - 1, rect.y + rect.h - 1);
+}
+
+fn point_is_inside_rect(point: glam::IVec2, rect: Rect) -> bool {
+    let (rect_x0, rect_y0, rect_x1, rect_y1) = (rect.x, rect.y, rect.x + rect.w, rect.y + rect.h);
+    let (point_x, point_y) = (point.x as u32, point.y as u32);
+    let horizontal_overlap = rect_x0 <= point_x && point_x <= rect_x1;
+    let vertical_overlap = rect_y0 <= point_y && point_y <= rect_y1;
+
+    horizontal_overlap && vertical_overlap
+}
 
 fn main() {
     let window_width = 800;
@@ -155,13 +167,15 @@ fn main() {
     let get_proc_address = |s| sdl_video.gl_get_proc_address(s) as _;
     let imgui_renderer = imgui_opengl_renderer::Renderer::new(&mut imgui, get_proc_address);
 
+    /* Setup input */
+    let mut input = InputDevices::new();
+
     /* Setup rendering */
     let mut renderer = rendering::Renderer::new();
     renderer.on_window_resize(window_width, window_height);
 
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
-    let mut left_mouse_pressed = false;
     'main_loop: loop {
         /* Input */
         let time_now = SystemTime::now();
@@ -170,6 +184,7 @@ fn main() {
 
         for event in event_pump.poll_iter() {
             imgui_sdl.handle_event(&mut imgui, &event);
+            input.mouse.handle_event(&event);
             match event {
                 Event::Quit { .. } => break 'main_loop,
                 Event::KeyDown { keycode, .. } => match keycode {
@@ -178,19 +193,10 @@ fn main() {
                     }
                     _ => {}
                 },
-                Event::MouseButtonDown { mouse_btn, .. } => {
-                    if mouse_btn == MouseButton::Left {
-                        left_mouse_pressed = true;
-                    }
-                }
-                Event::MouseButtonUp { mouse_btn, .. } => {
-                    if mouse_btn == MouseButton::Left {
-                        left_mouse_pressed = false;
-                    }
-                }
                 _ => {}
             }
         }
+        input.mouse.update();
 
         /* Update */
         // draw background
@@ -203,12 +209,18 @@ fn main() {
             x: (window_width - 75) / 2,
             y: (window_height - 23) / 2,
         };
-        draw_button(&mut renderer, button_rect, left_mouse_pressed);
+        let button_pressed = point_is_inside_rect(input.mouse.pos, button_rect)
+            && input.mouse.left_button.is_pressed();
+        draw_button(&mut renderer, button_rect, button_pressed);
 
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();
         if let Some(window) = dev_ui.window("Example Window").begin() {
             dev_ui.text("Hello Win95 Button");
+            dev_ui.text(format!(
+                "Mouse pos: ({},{})",
+                input.mouse.pos.x, input.mouse.pos.y
+            ));
             window.end();
         };
 

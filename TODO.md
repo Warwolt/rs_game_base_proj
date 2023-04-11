@@ -1,8 +1,8 @@
 # TODO list
 
 - [ ] rendering
-  - [ ] draw lines
-  - [ ] draw rectangles
+  - [x] draw lines
+  - [x] draw rectangles
   - [ ] draw circles
   - [ ] draw fonts
   - [ ] draw sprites
