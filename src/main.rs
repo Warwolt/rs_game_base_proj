@@ -25,10 +25,10 @@ use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy)]
 struct Rect {
-    x: u32,
-    y: u32,
-    w: u32,
-    h: u32,
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
 }
 
 const CONFIG_FILE: &str = "config.ini";
@@ -125,7 +125,7 @@ fn draw_button(renderer: &mut Renderer, rect: Rect, pressed: bool) {
 
 fn point_is_inside_rect(point: glam::IVec2, rect: Rect) -> bool {
     let (rect_x0, rect_y0, rect_x1, rect_y1) = (rect.x, rect.y, rect.x + rect.w, rect.y + rect.h);
-    let (point_x, point_y) = (point.x as u32, point.y as u32);
+    let (point_x, point_y) = (point.x as i32, point.y as i32);
     let horizontal_overlap = rect_x0 <= point_x && point_x <= rect_x1;
     let vertical_overlap = rect_y0 <= point_y && point_y <= rect_y1;
 
@@ -201,17 +201,42 @@ fn main() {
 
         // draw background
         renderer.set_draw_color(0, 129, 129);
-        renderer.draw_rect_fill(0, 0, window_width, window_height);
+        renderer.draw_rect_fill(0, 0, window_width as i32, window_height as i32);
 
+        let (win_center_x, win_center_y) = ((window_width / 2) as i32, (window_height / 2) as i32);
+
+        let button_width = 75;
+        let button_height = 23;
         let button_rect = Rect {
-            w: 75,
-            h: 23,
-            x: (window_width - 75) / 2,
-            y: (window_height - 23) / 2,
+            w: button_width,
+            h: button_height,
+            x: (window_width as i32 - button_width) / 2,
+            y: (window_height as i32 - button_height) / 2,
         };
         let button_pressed = point_is_inside_rect(input.mouse.pos, button_rect)
             && input.mouse.left_button.is_pressed();
         draw_button(&mut renderer, button_rect, button_pressed);
+
+        let smiley_center_x = win_center_x + 250;
+        let smiley_center_y = win_center_y - 150;
+        renderer.set_draw_color(255, 255, 255);
+        renderer.draw_circle(smiley_center_x, smiley_center_y, 100);
+        renderer.draw_circle(smiley_center_x - 50, smiley_center_y - 20, 20);
+        renderer.draw_circle(smiley_center_x - 50, smiley_center_y - 20, 5);
+        renderer.draw_circle(smiley_center_x + 50, smiley_center_y - 20, 20);
+        renderer.draw_circle(smiley_center_x + 50, smiley_center_y - 20, 5);
+        renderer.draw_line(
+            smiley_center_x - 30,
+            smiley_center_y + 20,
+            smiley_center_x,
+            smiley_center_y + 40,
+        );
+        renderer.draw_line(
+            smiley_center_x + 30,
+            smiley_center_y + 20,
+            smiley_center_x,
+            smiley_center_y + 40,
+        );
 
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();

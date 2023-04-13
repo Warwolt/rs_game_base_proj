@@ -1,3 +1,5 @@
+mod midpoint;
+
 use gl::types::*;
 use glam::Mat4;
 use std::{
@@ -27,6 +29,7 @@ struct ShaderData {
 enum PrimitiveType {
     Line,
     Triangle,
+    Point,
 }
 
 #[derive(Debug)]
@@ -86,6 +89,37 @@ impl Renderer {
         }
     }
 
+    pub fn render(&self) {
+        unsafe {
+            // upload data to VBO
+            gl::BindVertexArray(self.shader.primitives_vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.shader.primitives_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                size_of_buf(&self.draw.vertices) as _,
+                self.draw.vertices.as_ptr() as *const c_void,
+                gl::STATIC_DRAW,
+            );
+
+            // clear
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            gl::UseProgram(self.shader.program);
+            gl::BindVertexArray(self.shader.primitives_vao);
+            let mut buffer_offset = 0;
+            for section in &self.draw.sections {
+                let mode = match section.primitive {
+                    PrimitiveType::Triangle => gl::TRIANGLES,
+                    PrimitiveType::Line => gl::LINES,
+                    PrimitiveType::Point => gl::POINTS,
+                };
+                gl::DrawArrays(mode, buffer_offset, section.length as i32);
+                buffer_offset += section.length as i32;
+            }
+        }
+    }
+
     pub fn on_window_resize(&self, width: u32, height: u32) {
         let projection = Mat4::orthographic_lh(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
         unsafe {
@@ -106,7 +140,19 @@ impl Renderer {
         self.draw.active_color = RGBColor(r, g, b);
     }
 
-    pub fn draw_line(&mut self, x0: u32, y0: u32, x1: u32, y1: u32) {
+    #[allow(dead_code)]
+    pub fn draw_point(&mut self, x: i32, y: i32) {
+        self.draw.vertices.push(Vertex::new(
+            Position(x as f32, y as f32, 0.0),
+            self.draw.active_color,
+        ));
+        self.draw.sections.push(VertexSection {
+            length: 1,
+            primitive: PrimitiveType::Point,
+        })
+    }
+
+    pub fn draw_line(&mut self, x0: i32, y0: i32, x1: i32, y1: i32) {
         let (x0, y0, x1, y1) = (x0 as f32, y0 as f32, x1 as f32, y1 as f32);
         let color = self.draw.active_color;
 
@@ -123,7 +169,7 @@ impl Renderer {
         })
     }
 
-    pub fn draw_rect_fill(&mut self, x: u32, y: u32, w: u32, h: u32) {
+    pub fn draw_rect_fill(&mut self, x: i32, y: i32, w: i32, h: i32) {
         let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
         let color = self.draw.active_color;
 
@@ -148,35 +194,21 @@ impl Renderer {
         })
     }
 
-    pub fn render(&self) {
-        unsafe {
-            // upload data to VBO
-            gl::BindVertexArray(self.shader.primitives_vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.shader.primitives_vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                size_of_buf(&self.draw.vertices) as _,
-                self.draw.vertices.as_ptr() as *const c_void,
-                gl::STATIC_DRAW,
-            );
+    pub fn draw_circle(&mut self, center_x: i32, center_y: i32, radius: u32) {
+        let circle_vertices = midpoint::circle_points(radius).into_iter().map(|(x, y)| {
+            Vertex::new(
+                Position((center_x + x) as f32, (center_y + y) as f32, 0.0),
+                self.draw.active_color,
+            )
+        });
 
-            gl::UseProgram(self.shader.program);
+        let prev_vertices_len = self.draw.vertices.len();
+        self.draw.vertices.extend(circle_vertices);
 
-            // clear
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-
-            gl::BindVertexArray(self.shader.primitives_vao);
-            let mut offset = 0;
-            for section in &self.draw.sections {
-                let mode = match section.primitive {
-                    PrimitiveType::Triangle => gl::TRIANGLES,
-                    PrimitiveType::Line => gl::LINES,
-                };
-                gl::DrawArrays(mode, offset, section.length as i32);
-                offset += section.length as i32;
-            }
-        }
+        self.draw.sections.push(VertexSection {
+            length: self.draw.vertices.len() - prev_vertices_len,
+            primitive: PrimitiveType::Point,
+        })
     }
 }
 
@@ -204,6 +236,7 @@ impl Vertex {
         }
     }
 
+    /// Setup attribute pointers for binding `Vertex` data to a VAO
     fn set_vao_attr_ptrs(vao: u32, vbo: u32) {
         unsafe {
             gl::BindVertexArray(vao);

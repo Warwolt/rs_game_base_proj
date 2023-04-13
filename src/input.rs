@@ -58,7 +58,6 @@ impl Mouse {
         use sdl2::mouse::MouseButton;
         match event {
             sdl2::event::Event::MouseButtonDown { mouse_btn, .. } => match mouse_btn {
-                MouseButton::Unknown => (),
                 MouseButton::Left => {
                     self.left_button.register_event(ButtonEvent::Down);
                 }
@@ -74,9 +73,9 @@ impl Mouse {
                 MouseButton::X2 => {
                     self.x2_button.register_event(ButtonEvent::Down);
                 }
+                _ => (),
             },
             sdl2::event::Event::MouseButtonUp { mouse_btn, .. } => match mouse_btn {
-                MouseButton::Unknown => (),
                 MouseButton::Left => {
                     self.left_button.register_event(ButtonEvent::Up);
                 }
@@ -92,6 +91,7 @@ impl Mouse {
                 MouseButton::X2 => {
                     self.x2_button.register_event(ButtonEvent::Up);
                 }
+                _ => (),
             },
             sdl2::event::Event::MouseMotion { x, y, .. } => {
                 self.pos = glam::ivec2(*x, *y);
