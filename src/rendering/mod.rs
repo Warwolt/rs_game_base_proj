@@ -210,6 +210,33 @@ impl Renderer {
             primitive: PrimitiveType::Point,
         })
     }
+
+    pub fn draw_fill_circle(&mut self, center_x: i32, center_y: i32, radius: u32) {
+        let half_circle_points = midpoint::circle_points(radius)
+            .into_iter()
+            .filter(|(_, y)| *y >= 0);
+        let line_vertices = half_circle_points.flat_map(|(x, y)| {
+            [
+                // draw a line between points on the upper and lower half-circle
+                Vertex::new(
+                    Position((center_x + x) as f32, (center_y + y) as f32, 0.0),
+                    self.draw.active_color,
+                ),
+                Vertex::new(
+                    Position((center_x + x) as f32, (center_y - y) as f32, 0.0),
+                    self.draw.active_color,
+                ),
+            ]
+        });
+
+        let prev_vertices_len = self.draw.vertices.len();
+        self.draw.vertices.extend(line_vertices);
+
+        self.draw.sections.push(VertexSection {
+            length: self.draw.vertices.len() - prev_vertices_len,
+            primitive: PrimitiveType::Line,
+        })
+    }
 }
 
 impl Drop for Renderer {

@@ -219,12 +219,22 @@ fn main() {
 
         let smiley_center_x = win_center_x + 250;
         let smiley_center_y = win_center_y - 150;
+
+        // body
+        renderer.set_draw_color(255, 216, 102);
+        renderer.draw_fill_circle(smiley_center_x, smiley_center_y, 100);
+
+        // eyes
         renderer.set_draw_color(255, 255, 255);
-        renderer.draw_circle(smiley_center_x, smiley_center_y, 100);
-        renderer.draw_circle(smiley_center_x - 50, smiley_center_y - 20, 20);
-        renderer.draw_circle(smiley_center_x - 50, smiley_center_y - 20, 5);
-        renderer.draw_circle(smiley_center_x + 50, smiley_center_y - 20, 20);
-        renderer.draw_circle(smiley_center_x + 50, smiley_center_y - 20, 5);
+        renderer.draw_fill_circle(smiley_center_x - 50, smiley_center_y - 20, 20);
+        renderer.draw_fill_circle(smiley_center_x + 50, smiley_center_y - 20, 20);
+
+        // pupils
+        renderer.set_draw_color(0, 0, 0);
+        renderer.draw_fill_circle(smiley_center_x - 50, smiley_center_y - 20, 5);
+        renderer.draw_fill_circle(smiley_center_x + 50, smiley_center_y - 20, 5);
+
+        // mouth
         renderer.draw_line(
             smiley_center_x - 30,
             smiley_center_y + 20,
