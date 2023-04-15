@@ -4,7 +4,7 @@
   - [x] draw lines
   - [x] draw rectangles
   - [x] draw circles
-  - [ ] draw with alpha value
+  - [x] draw with alpha value
   - [ ] draw fonts
   - [ ] draw sprites
   - [ ] render at different resolutions (reference: https://stackoverflow.com/questions/7071090/low-resolution-in-opengl-to-mimic-older-games)
