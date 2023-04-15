@@ -2,6 +2,7 @@ mod midpoint;
 
 use gl::types::*;
 use glam::Mat4;
+use itertools::Itertools;
 use std::{
     ffi::{c_void, CString},
     mem::size_of,
@@ -32,6 +33,7 @@ enum PrimitiveType {
     Point,
 }
 
+/// Metadata for a sequence of vertices in the vertex buffer
 #[derive(Debug)]
 struct VertexSection {
     length: usize,            // The number of vertices in the section
@@ -40,7 +42,7 @@ struct VertexSection {
 
 #[derive(Debug)]
 struct DrawData {
-    active_color: RGBColor,
+    active_color: ColorRGBA,
     vertices: Vec<Vertex>,
     sections: Vec<VertexSection>,
 }
@@ -50,7 +52,7 @@ struct DrawData {
 struct Position(f32, f32, f32);
 /// rgb
 #[derive(Debug, Copy, Clone)]
-struct RGBColor(u8, u8, u8);
+struct ColorRGBA(u8, u8, u8, u8);
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -61,6 +63,7 @@ struct Vertex {
     r: GLfloat,
     g: GLfloat,
     b: GLfloat,
+    a: GLfloat,
 }
 
 impl Renderer {
@@ -73,6 +76,14 @@ impl Renderer {
         let primitives_vao = new_vao();
         Vertex::set_vao_attr_ptrs(primitives_vao, primitives_vbo);
 
+        // TODO: consider only enabling blending when drawing vertices with an alpha value < 1.0?
+        // we could store this as meta-data in the VertexSection
+        // for now, just always have this enabled to keep things simple
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
         Renderer {
             shader: ShaderData {
                 program,
@@ -82,7 +93,7 @@ impl Renderer {
                 primitives_vao,
             },
             draw: DrawData {
-                active_color: RGBColor(0, 0, 0),
+                active_color: ColorRGBA(0, 0, 0, 255),
                 vertices: Vec::new(),
                 sections: Vec::new(),
             },
@@ -131,13 +142,13 @@ impl Renderer {
     }
 
     pub fn clear(&mut self) {
-        self.draw.active_color = RGBColor(0, 0, 0);
+        self.draw.active_color = ColorRGBA(0, 0, 0, 255);
         self.draw.vertices.clear();
         self.draw.sections.clear();
     }
 
-    pub fn set_draw_color(&mut self, r: u8, g: u8, b: u8) {
-        self.draw.active_color = RGBColor(r, g, b);
+    pub fn set_draw_color(&mut self, r: u8, g: u8, b: u8, a: u8) {
+        self.draw.active_color = ColorRGBA(r, g, b, a);
     }
 
     #[allow(dead_code)]
@@ -172,14 +183,10 @@ impl Renderer {
     pub fn draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32) {
         let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
         let lines = [
-            // top line
-            (x, y, x + w, y),
-            // left line
-            (x, y, x, y + h),
-            // right line
-            (x + w, y, x + w, y + h),
-            // bottom line
-            (x, y + h, x + w, y + h),
+            (x, y, x + w, y),         // top line
+            (x, y, x, y + h),         // left line
+            (x + w, y, x + w, y + h), // right line
+            (x, y + h, x + w, y + h), // bottom line
         ];
         for (x0, y0, x1, y1) in lines {
             self.draw.vertices.push(Vertex::new(
@@ -243,14 +250,16 @@ impl Renderer {
     pub fn draw_fill_circle(&mut self, center_x: i32, center_y: i32, radius: u32) {
         let half_circle_points = midpoint::circle_points(radius)
             .into_iter()
-            .filter(|(_, y)| *y >= 0);
+            .filter(|(_, y)| *y >= 0) // grab upper half of circle
+            .unique_by(|(x, _)| *x); // make sure we don't overlap any lines (messes with transparency)
         let line_vertices = half_circle_points.flat_map(|(x, y)| {
             [
-                // draw a line between points on the upper and lower half-circle
+                // start the line on upper half circle
                 Vertex::new(
                     Position((center_x + x) as f32, (center_y + y) as f32, 0.0),
                     self.draw.active_color,
                 ),
+                // end the line on lower half circle
                 Vertex::new(
                     Position((center_x + x) as f32, (center_y - y) as f32, 0.0),
                     self.draw.active_color,
@@ -281,7 +290,7 @@ impl Drop for Renderer {
 }
 
 impl Vertex {
-    fn new(Position(x, y, z): Position, RGBColor(r, g, b): RGBColor) -> Self {
+    fn new(Position(x, y, z): Position, ColorRGBA(r, g, b, a): ColorRGBA) -> Self {
         Vertex {
             x: x as f32,
             y: y as f32,
@@ -289,6 +298,7 @@ impl Vertex {
             r: r as f32 / 255.0,
             g: g as f32 / 255.0,
             b: b as f32 / 255.0,
+            a: a as f32 / 255.0,
         }
     }
 
@@ -299,24 +309,31 @@ impl Vertex {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
             let position_location = 0;
-            let color_location = 1;
+            let position_size = 3;
+            let position_stride = size_of::<Vertex>();
+            let position_offset = 0 * size_of::<GLfloat>();
 
             gl::VertexAttribPointer(
                 position_location,
-                3,
+                position_size,
                 gl::FLOAT,
                 gl::FALSE,
-                size_of::<Vertex>().try_into().unwrap(),
-                (0 * size_of::<GLfloat>()) as *const _,
+                position_stride as i32,
+                position_offset as *const _,
             );
+
+            let color_location = 1;
+            let color_size = 4;
+            let color_stride = size_of::<Vertex>();
+            let color_offset = 3 * size_of::<GLfloat>();
 
             gl::VertexAttribPointer(
                 color_location,
-                3,
+                color_size,
                 gl::FLOAT,
                 gl::FALSE,
-                6 * size_of::<GLfloat>() as i32,
-                (3 * size_of::<GLfloat>()) as *const _,
+                color_stride as i32,
+                color_offset as *const _,
             );
 
             gl::EnableVertexAttribArray(0);
