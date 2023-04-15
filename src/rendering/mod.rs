@@ -34,8 +34,8 @@ enum PrimitiveType {
 
 #[derive(Debug)]
 struct VertexSection {
-    length: usize,
-    primitive: PrimitiveType,
+    length: usize,            // The number of vertices in the section
+    primitive: PrimitiveType, // The primitive to draw the vertices as
 }
 
 #[derive(Debug)]
@@ -169,6 +169,34 @@ impl Renderer {
         })
     }
 
+    pub fn draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32) {
+        let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
+        let lines = [
+            // top line
+            (x, y, x + w, y),
+            // left line
+            (x, y, x, y + h),
+            // right line
+            (x + w, y, x + w, y + h),
+            // bottom line
+            (x, y + h, x + w, y + h),
+        ];
+        for (x0, y0, x1, y1) in lines {
+            self.draw.vertices.push(Vertex::new(
+                Position(x0 as f32, y0 as f32, 0.0),
+                self.draw.active_color,
+            ));
+            self.draw.vertices.push(Vertex::new(
+                Position(x1 as f32, y1 as f32, 0.0),
+                self.draw.active_color,
+            ));
+        }
+        self.draw.sections.push(VertexSection {
+            length: 8,
+            primitive: PrimitiveType::Line,
+        })
+    }
+
     pub fn draw_rect_fill(&mut self, x: i32, y: i32, w: i32, h: i32) {
         let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
         let color = self.draw.active_color;
@@ -194,6 +222,7 @@ impl Renderer {
         })
     }
 
+    #[allow(dead_code)]
     pub fn draw_circle(&mut self, center_x: i32, center_y: i32, radius: u32) {
         let circle_vertices = midpoint::circle_points(radius).into_iter().map(|(x, y)| {
             Vertex::new(

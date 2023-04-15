@@ -248,6 +248,10 @@ fn main() {
             smiley_center_y + 40,
         );
 
+        // pretend hit box
+        renderer.set_draw_color(0, 255, 0);
+        renderer.draw_rect(smiley_center_x - 100, smiley_center_y - 100, 200, 200);
+
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();
         if let Some(window) = dev_ui.window("Example Window").begin() {
