@@ -1,0 +1,7 @@
+[dependencies]
+# Platform
+sdl2 = "0.34.5"
+
+# Graphics
+gl = "0.10.0"
+image = "0.24.6"

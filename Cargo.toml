@@ -6,12 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Utility
 itertools = "0.10.5"
+glam = "0.23.0"
 
 # Platform
 sdl2 = "0.34.5"
+
+# Graphics
 gl = "0.10.0"
-glam = "0.23.0"
+image = "0.24.6"
 
 # ImGui
 imgui = "0.9.0"
@@ -25,6 +29,10 @@ simple_logger = "4.1.0"
 # Serialization
 configparser = "3.0.2"
 
+[build-dependencies]
 # Application Icon
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
+
+# Copy DLLs
+copy_to_output = "2.1.0"

@@ -12,6 +12,7 @@ use std::path::Path;
 use std::str;
 
 use configparser::ini::Ini;
+use image::GenericImageView;
 use input::InputDevices;
 use rendering::Renderer;
 use sdl2::keyboard::Keycode;
@@ -224,6 +225,16 @@ fn main() {
     let mut renderer = rendering::Renderer::new();
     renderer.on_window_resize(window_width, window_height);
 
+    // load image and add to renderer
+    let container_image = image::open("resources/container.jpg").unwrap();
+    let (container_width, container_height) = container_image.dimensions();
+    let container_data = container_image
+        .pixels()
+        .flat_map(|(_x, _y, pixel)| pixel.0)
+        .collect::<Vec<u8>>();
+    let container_texture =
+        renderer.add_texture(&container_data, container_width, container_height);
+
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
     let mut show_dev_ui = config.getbool("Imgui", "Show").unwrap().unwrap();
@@ -282,6 +293,14 @@ fn main() {
         renderer.draw_fill_circle(170, 100, 32);
         renderer.draw_rect(100 - 32, 170 - 32, 64, 64);
         renderer.draw_rect_fill(170 - 32, 170 - 32, 64, 64);
+
+        renderer.draw_texture(
+            container_texture,
+            0,
+            0,
+            container_width / 2,
+            container_height / 2,
+        );
 
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();
