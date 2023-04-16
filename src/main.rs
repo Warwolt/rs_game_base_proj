@@ -5,6 +5,7 @@ extern crate imgui_sdl2;
 extern crate sdl2;
 
 mod input;
+mod midpoint;
 mod rendering;
 
 use std::path::Path;

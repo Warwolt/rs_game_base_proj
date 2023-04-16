@@ -1,5 +1,4 @@
-mod midpoint;
-
+use crate::midpoint;
 use gl::types::*;
 use glam::Mat4;
 use itertools::Itertools;
