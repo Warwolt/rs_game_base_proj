@@ -88,6 +88,32 @@ extern "system" fn on_opengl_debug_message(
         }
     }
 }
+
+fn gl_error_to_string(err: gl::types::GLenum) -> &'static str {
+    match err {
+        gl::INVALID_ENUM => "GL_INVALID_ENUM",
+        gl::INVALID_VALUE => "GL_INVALID_VALUE",
+        gl::INVALID_OPERATION => "GL_INVALID_OPERATION",
+        gl::STACK_OVERFLOW => "GL_STACK_OVERFLOW",
+        gl::OUT_OF_MEMORY => "GL_OUT_OF_MEMORY",
+        gl::INVALID_FRAMEBUFFER_OPERATION => "GL_INVALID_FRAMEBUFFER_OPERATION",
+        gl::CONTEXT_LOST => "GL_CONTEXT_LOST",
+        _ => "(unknown error)",
+    }
+}
+
+macro_rules! assert_no_gl_error {
+    () => {
+        let gl_error = gl::GetError();
+        if gl_error != gl::NO_ERROR {
+            panic!(
+                "OpenGL produced error code {}",
+                gl_error_to_string(gl_error)
+            );
+        }
+    };
+}
+
 impl Renderer {
     pub fn new() -> Self {
         unsafe {
@@ -99,7 +125,7 @@ impl Renderer {
         let fragment_shader = compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER);
         let program = link_program(vertex_shader, fragment_shader);
 
-        let primitives_vbo = new_vbo(1000, gl::DYNAMIC_DRAW);
+        let primitives_vbo = new_vbo();
         let primitives_vao = new_vao();
         Vertex::set_vao_attr_ptrs(primitives_vao, primitives_vbo);
 
@@ -365,6 +391,8 @@ impl Vertex {
 
             gl::EnableVertexAttribArray(0);
             gl::EnableVertexAttribArray(1);
+
+            assert_no_gl_error!();
         }
     }
 }
@@ -401,6 +429,8 @@ fn compile_shader(src: &str, ty: GLenum) -> GLuint {
                     .expect("ShaderInfoLog not valid utf8")
             );
         }
+
+        assert_no_gl_error!();
     }
     shader
 }
@@ -434,6 +464,9 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
                     .expect("ProgramInfoLog not valid utf8")
             );
         }
+
+        assert_no_gl_error!();
+
         program
     }
 }
@@ -442,11 +475,11 @@ fn size_of_buf<T>(buf: &[T]) -> usize {
     buf.len() * size_of::<T>()
 }
 
-fn new_vbo(size: usize, usage: GLenum) -> u32 {
+fn new_vbo() -> u32 {
     let mut vbo = 0;
     unsafe {
         gl::GenBuffers(1, &mut vbo);
-        gl::BufferData(gl::ARRAY_BUFFER, size as isize, std::ptr::null(), usage);
+        assert_no_gl_error!();
     }
     vbo
 }
@@ -455,6 +488,7 @@ fn new_vao() -> u32 {
     let mut vao = 0;
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
+        assert_no_gl_error!();
     }
     vao
 }
