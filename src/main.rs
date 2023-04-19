@@ -46,6 +46,11 @@ fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {
     gl_attr.set_context_version(3, 3);
     gl_attr.set_context_profile(GLProfile::Core);
 
+    let debug_gl = true;
+    if debug_gl {
+        gl_attr.set_context_flags().debug().set();
+    }
+
     sdl_video
 }
 

@@ -65,8 +65,36 @@ struct Vertex {
     a: GLfloat,
 }
 
+#[no_mangle]
+extern "system" fn on_opengl_debug_message(
+    _source: u32,
+    _type: u32,
+    _id: u32,
+    severity: u32,
+    _length: i32,
+    message: *const i8,
+    _user_param: *mut c_void,
+) {
+    unsafe {
+        let formatted_message = format!(
+            "OpenGL: {}",
+            std::ffi::CStr::from_ptr(message).to_str().unwrap()
+        );
+        match severity {
+            gl::DEBUG_SEVERITY_HIGH => log::error!("{}", formatted_message),
+            gl::DEBUG_SEVERITY_MEDIUM => log::error!("{}", formatted_message),
+            gl::DEBUG_SEVERITY_LOW => log::warn!("{}", formatted_message),
+            _ => (),
+        }
+    }
+}
 impl Renderer {
     pub fn new() -> Self {
+        unsafe {
+            gl::Enable(gl::DEBUG_OUTPUT);
+            gl::DebugMessageCallback(on_opengl_debug_message, std::ptr::null());
+        }
+
         let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
         let fragment_shader = compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER);
         let program = link_program(vertex_shader, fragment_shader);
