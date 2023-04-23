@@ -1,8 +1,9 @@
-use crate::midpoint;
+use crate::{geometry::Rect, midpoint};
 use gl::types::*;
 use glam::Mat4;
 use itertools::Itertools;
 use std::{
+    collections::HashMap,
     ffi::{c_void, CString},
     mem::size_of,
 };
@@ -13,8 +14,15 @@ pub struct Renderer {
     draw: DrawData,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Hash)]
 pub struct TextureID(u32);
+
+#[derive(Debug, Clone, Copy)]
+pub struct TextureData {
+    pub id: TextureID,
+    pub width: u32,
+    pub height: u32,
+}
 
 #[derive(Debug)]
 struct ShaderData {
@@ -23,8 +31,8 @@ struct ShaderData {
     fragment_shader: u32,
     vbo: u32,
     vao: u32,
-    white_texture: u32,
-    textures: Vec<u32>,
+    white_texture_id: u32,
+    textures: HashMap<TextureID, TextureData>,
 }
 
 #[derive(Debug)]
@@ -40,11 +48,13 @@ struct VertexSection {
     length: usize,            // The number of vertices in the section
     primitive: PrimitiveType, // The primitive to draw the vertices as
     texture_id: u32,          // The texture to draw with
+    color_key: ColorRGBA,     // The RGBA value to draw transparently
 }
 
 #[derive(Debug)]
 struct DrawData {
     active_color: ColorRGBA,
+    active_color_key: ColorRGBA,
     vertices: Vec<Vertex>,
     sections: Vec<VertexSection>,
 }
@@ -59,7 +69,6 @@ struct ColorRGBA(u8, u8, u8, u8);
 #[derive(Debug, Copy, Clone)]
 struct TextureUV(f32, f32);
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 #[repr(C, packed)]
 struct Vertex {
@@ -68,7 +77,6 @@ struct Vertex {
     texture_uv: VertexTextureUV,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 #[repr(C, packed)]
 struct VertexPosition {
@@ -77,7 +85,6 @@ struct VertexPosition {
     z: GLfloat,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 #[repr(C, packed)]
 struct VertexColor {
@@ -87,7 +94,6 @@ struct VertexColor {
     a: GLfloat,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 #[repr(C, packed)]
 struct VertexTextureUV {
@@ -184,11 +190,12 @@ impl Renderer {
                 fragment_shader,
                 vbo: primitives_vbo,
                 vao: primitives_vao,
-                white_texture,
-                textures: Vec::new(),
+                white_texture_id: white_texture,
+                textures: HashMap::new(),
             },
             draw: DrawData {
                 active_color: ColorRGBA(0, 0, 0, 255),
+                active_color_key: ColorRGBA(0, 0, 0, 0),
                 vertices: Vec::new(),
                 sections: Vec::new(),
             },
@@ -220,6 +227,8 @@ impl Renderer {
                     PrimitiveType::Line => gl::LINES,
                     PrimitiveType::Point => gl::POINTS,
                 };
+
+                self.set_color_key_uniform(section.color_key);
                 gl::ActiveTexture(gl::TEXTURE0);
                 gl::BindTexture(gl::TEXTURE_2D, section.texture_id);
                 gl::DrawArrays(mode, buffer_offset, section.length as i32);
@@ -238,21 +247,36 @@ impl Renderer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_texture(&mut self, rgba_data: &[u8], width: u32, height: u32) -> TextureID {
-        let texture_id = new_texture();
-        self.shader.textures.push(texture_id);
-        upload_data_to_texture(texture_id, rgba_data, width, height);
-        TextureID(texture_id)
+        let id = TextureID(new_texture());
+        self.shader
+            .textures
+            .insert(id, TextureData { id, width, height });
+        upload_data_to_texture(id.0, rgba_data, width, height);
+        id
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.draw.active_color = ColorRGBA(0, 0, 0, 255);
         self.draw.vertices.clear();
         self.draw.sections.clear();
     }
 
+    #[allow(dead_code)]
     pub fn set_draw_color(&mut self, r: u8, g: u8, b: u8, a: u8) {
         self.draw.active_color = ColorRGBA(r, g, b, a);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_color_key(&mut self, r: u8, g: u8, b: u8) {
+        self.draw.active_color_key = ColorRGBA(r, g, b, 255);
+    }
+
+    #[allow(dead_code)]
+    pub fn disable_color_key(&mut self) {
+        self.draw.active_color_key = ColorRGBA(0, 0, 0, 0);
     }
 
     #[allow(dead_code)]
@@ -264,10 +288,12 @@ impl Renderer {
         self.draw.sections.push(VertexSection {
             length: 1,
             primitive: PrimitiveType::Point,
-            texture_id: self.shader.white_texture,
+            texture_id: self.shader.white_texture_id,
+            color_key: self.draw.active_color_key,
         })
     }
 
+    #[allow(dead_code)]
     pub fn draw_line(&mut self, x0: i32, y0: i32, x1: i32, y1: i32) {
         let (x0, y0, x1, y1) = (x0 as f32, y0 as f32, x1 as f32, y1 as f32);
         let color = self.draw.active_color;
@@ -282,10 +308,12 @@ impl Renderer {
         self.draw.sections.push(VertexSection {
             length: 2,
             primitive: PrimitiveType::Line,
-            texture_id: self.shader.white_texture,
+            texture_id: self.shader.white_texture_id,
+            color_key: self.draw.active_color_key,
         })
     }
 
+    #[allow(dead_code)]
     pub fn draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32) {
         let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
         let lines = [
@@ -307,10 +335,12 @@ impl Renderer {
         self.draw.sections.push(VertexSection {
             length: 8,
             primitive: PrimitiveType::Line,
-            texture_id: self.shader.white_texture,
+            texture_id: self.shader.white_texture_id,
+            color_key: self.draw.active_color_key,
         })
     }
 
+    #[allow(dead_code)]
     pub fn draw_rect_fill(&mut self, x: i32, y: i32, w: i32, h: i32) {
         let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
         let color = self.draw.active_color;
@@ -334,7 +364,8 @@ impl Renderer {
         self.draw.sections.push(VertexSection {
             length: 6,
             primitive: PrimitiveType::Triangle,
-            texture_id: self.shader.white_texture,
+            texture_id: self.shader.white_texture_id,
+            color_key: self.draw.active_color_key,
         })
     }
 
@@ -353,10 +384,12 @@ impl Renderer {
         self.draw.sections.push(VertexSection {
             length: self.draw.vertices.len() - prev_vertices_len,
             primitive: PrimitiveType::Point,
-            texture_id: self.shader.white_texture,
+            texture_id: self.shader.white_texture_id,
+            color_key: self.draw.active_color_key,
         })
     }
 
+    #[allow(dead_code)]
     pub fn draw_fill_circle(&mut self, center_x: i32, center_y: i32, radius: u32) {
         let half_circle_points = midpoint::circle_points(radius)
             .into_iter()
@@ -383,34 +416,88 @@ impl Renderer {
         self.draw.sections.push(VertexSection {
             length: self.draw.vertices.len() - prev_vertices_len,
             primitive: PrimitiveType::Line,
-            texture_id: self.shader.white_texture,
+            texture_id: self.shader.white_texture_id,
+            color_key: self.draw.active_color_key,
         })
     }
 
-    pub fn draw_texture(&mut self, texture_id: TextureID, x: i32, y: i32, w: u32, h: u32) {
-        let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
+    #[allow(dead_code)]
+    #[rustfmt::skip]
+    /// Draw a texture to the screen.
+    /// * `texture_id` the texture to draw
+    /// * `draw_rect`  specifies the quad that the texture will be drawn on
+    /// * `clip_rect`  optionally specifies what portion of the texture to use
+    pub fn draw_texture(
+        &mut self,
+        texture_id: TextureID,
+        draw_rect: Rect,
+        clip_rect: Option<Rect>,
+    ) {
+        let (draw_x, draw_y, draw_w, draw_h) = (
+            draw_rect.x as f32,
+            draw_rect.y as f32,
+            draw_rect.w as f32,
+            draw_rect.h as f32,
+        );
         let vertices = &mut self.draw.vertices;
 
-        let top_left = Position(x, y, 0.0);
-        let top_right = Position(x + w, y, 0.0);
-        let bottom_left = Position(x, y + h, 0.0);
-        let bottom_right = Position(x + w, y + h, 0.0);
+        let top_left_xy = Position(draw_x, draw_y, 0.0);
+        let top_right_xy = Position(draw_x + draw_w, draw_y, 0.0);
+        let bottom_left_xy = Position(draw_x, draw_y + draw_h, 0.0);
+        let bottom_right_xy = Position(draw_x + draw_w, draw_y + draw_h, 0.0);
+
+        let top_left_uv;
+        let top_right_uv;
+        let bottom_left_uv;
+        let bottom_right_uv;
+
+        if let Some(clip_rect) = clip_rect {
+            let texture = self.shader.textures[&texture_id];
+            let (tex_w, tex_h) = (texture.width as f32, texture.height as f32);
+            let (clip_x, clip_y, clip_w, clip_h) = (
+                clip_rect.x as f32,
+                clip_rect.y as f32,
+                clip_rect.w as f32,
+                clip_rect.h as f32,
+            );
+            top_left_uv = TextureUV(clip_x / tex_w, 1.0 - clip_y / tex_h);
+            top_right_uv = TextureUV((clip_x + clip_w) / tex_w, 1.0 - clip_y / tex_h);
+            bottom_left_uv = TextureUV(clip_x / tex_w, 1.0 - (clip_y + clip_h) / tex_h);
+            bottom_right_uv = TextureUV((clip_x + clip_w) / tex_w, 1.0 - (clip_y + clip_h) / tex_h);
+        } else {
+            top_left_uv = TextureUV(0.0, 1.0);
+            top_right_uv = TextureUV(1.0, 1.0);
+            bottom_left_uv = TextureUV(0.0, 0.0);
+            bottom_right_uv = TextureUV(1.0, 0.0);
+        }
 
         // first triangle
-        vertices.push(Vertex::with_uv(top_left, TextureUV(0.0, 1.0)));
-        vertices.push(Vertex::with_uv(top_right, TextureUV(1.0, 1.0)));
-        vertices.push(Vertex::with_uv(bottom_left, TextureUV(0.0, 0.0)));
+        vertices.push(Vertex::with_uv(top_left_xy, top_left_uv));
+        vertices.push(Vertex::with_uv(top_right_xy, top_right_uv));
+        vertices.push(Vertex::with_uv(bottom_left_xy, bottom_left_uv));
 
         // second triangle
-        vertices.push(Vertex::with_uv(top_right, TextureUV(1.0, 1.0)));
-        vertices.push(Vertex::with_uv(bottom_left, TextureUV(0.0, 0.0)));
-        vertices.push(Vertex::with_uv(bottom_right, TextureUV(1.0, 0.0)));
+        vertices.push(Vertex::with_uv(top_right_xy, top_right_uv));
+        vertices.push(Vertex::with_uv(bottom_left_xy, bottom_left_uv));
+        vertices.push(Vertex::with_uv(bottom_right_xy, bottom_right_uv));
 
         self.draw.sections.push(VertexSection {
             length: 6,
             primitive: PrimitiveType::Triangle,
             texture_id: texture_id.0,
+            color_key: self.draw.active_color_key,
         })
+    }
+
+    fn set_color_key_uniform(&self, color_key: ColorRGBA) {
+        set_uniform_vec4f(
+            self.shader.program,
+            "color_key",
+            color_key.0 as f32 / 255.0,
+            color_key.1 as f32 / 255.0,
+            color_key.2 as f32 / 255.0,
+            color_key.3 as f32 / 255.0,
+        );
     }
 }
 
@@ -421,11 +508,10 @@ impl Drop for Renderer {
             gl::DeleteShader(self.shader.fragment_shader);
             gl::DeleteShader(self.shader.vertex_shader);
             gl::DeleteBuffers(1, &self.shader.vao);
-            gl::DeleteTextures(1, &self.shader.white_texture);
-            gl::DeleteTextures(
-                self.shader.textures.len() as i32,
-                self.shader.textures.as_ptr() as *const u32,
-            );
+            gl::DeleteTextures(1, &self.shader.white_texture_id);
+            for (id, _) in &self.shader.textures {
+                gl::DeleteTextures(1, &id.0);
+            }
             gl::DeleteVertexArrays(1, &self.shader.vao);
         }
     }
@@ -636,6 +722,14 @@ fn new_texture() -> u32 {
         assert_no_gl_error!();
     }
     texture_id
+}
+
+fn set_uniform_vec4f(program: u32, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
+    unsafe {
+        let name_cstr = CString::new(name).unwrap();
+        let location = gl::GetUniformLocation(program, name_cstr.as_ptr() as *const i8);
+        gl::Uniform4f(location, v0, v1, v2, v3);
+    }
 }
 
 fn upload_data_to_texture(texture_id: u32, rgba_data: &[u8], width: u32, height: u32) {
