@@ -5,18 +5,17 @@ extern crate imgui_sdl2;
 extern crate sdl2;
 
 mod geometry;
+mod graphics;
 mod input;
-mod midpoint;
-mod rendering;
-mod sprites;
 
 use std::path::Path;
 use std::str;
 
 use configparser::ini::Ini;
+use graphics::rendering::{Renderer, TextureData};
+use graphics::sprites::SpriteSheetID;
 use image::GenericImageView;
 use input::InputDevices;
-use rendering::{Renderer, TextureData};
 use sdl2::keyboard::Keycode;
 use sdl2::video::GLContext;
 use sdl2::VideoSubsystem;
@@ -25,11 +24,10 @@ use sdl2::{
     video::{GLProfile, Window},
 };
 use simple_logger::SimpleLogger;
-use sprites::SpriteSheetID;
 use std::time::SystemTime;
 
 use crate::geometry::Rect;
-use crate::sprites::SpriteSystem;
+use crate::graphics::sprites::SpriteSystem;
 
 const CONFIG_FILE: &str = "config.ini";
 
@@ -256,7 +254,7 @@ fn main() {
     let mut input = InputDevices::new();
 
     /* Setup rendering */
-    let mut renderer = rendering::Renderer::new();
+    let mut renderer = Renderer::new();
     renderer.on_window_resize(window_width, window_height);
 
     /* Main loop */

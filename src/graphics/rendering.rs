@@ -1,4 +1,4 @@
-use crate::{geometry::Rect, midpoint};
+use crate::{geometry::Rect, graphics::midpoint};
 use gl::types::*;
 use glam::Mat4;
 use itertools::Itertools;

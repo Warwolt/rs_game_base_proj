@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     geometry::Rect,
-    rendering::{Renderer, TextureData},
+    graphics::rendering::{Renderer, TextureData},
 };
 
 #[derive(Debug)]
