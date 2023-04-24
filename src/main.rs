@@ -12,22 +12,21 @@ use std::path::Path;
 use std::str;
 
 use configparser::ini::Ini;
-use graphics::rendering::{Renderer, TextureData};
-use graphics::sprites::SpriteSheetID;
+use geometry::Rect;
+use graphics::{
+    rendering::{Renderer, TextureData},
+    sprites::{SpriteSheetID, SpriteSystem},
+};
 use image::GenericImageView;
 use input::InputDevices;
-use sdl2::keyboard::Keycode;
-use sdl2::video::GLContext;
-use sdl2::VideoSubsystem;
 use sdl2::{
     event::Event,
-    video::{GLProfile, Window},
+    keyboard::Keycode,
+    video::{GLContext, GLProfile, Window},
+    VideoSubsystem,
 };
 use simple_logger::SimpleLogger;
 use std::time::SystemTime;
-
-use crate::geometry::Rect;
-use crate::graphics::sprites::SpriteSystem;
 
 const CONFIG_FILE: &str = "config.ini";
 
