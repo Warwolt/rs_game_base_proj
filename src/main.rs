@@ -8,6 +8,7 @@ mod geometry;
 mod input;
 mod midpoint;
 mod rendering;
+mod sprites;
 
 use std::path::Path;
 use std::str;
@@ -24,9 +25,11 @@ use sdl2::{
     video::{GLProfile, Window},
 };
 use simple_logger::SimpleLogger;
+use sprites::SpriteSheetID;
 use std::time::SystemTime;
 
 use crate::geometry::Rect;
+use crate::sprites::SpriteSystem;
 
 const CONFIG_FILE: &str = "config.ini";
 
@@ -154,6 +157,55 @@ fn texture_from_image_path(renderer: &mut Renderer, path: &str) -> TextureData {
     TextureData { id, width, height }
 }
 
+fn setup_number_sprites(
+    renderer: &mut Renderer,
+    sprite_system: &mut SpriteSystem,
+) -> SpriteSheetID {
+    let texture = texture_from_image_path(renderer, "resources/spritesheet.png");
+    let sprites: [Rect; 4] = [
+        // "1"
+        Rect {
+            x: 0,
+            y: 0,
+            w: 32,
+            h: 32,
+        },
+        // "2"
+        Rect {
+            x: 32,
+            y: 0,
+            w: 32,
+            h: 32,
+        },
+        // "3"
+        Rect {
+            x: 0,
+            y: 32,
+            w: 32,
+            h: 32,
+        },
+        // "4"
+        Rect {
+            x: 32,
+            y: 32,
+            w: 32,
+            h: 32,
+        },
+    ];
+    sprite_system.add_spritesheet(texture, &sprites, Some((255, 0, 255)))
+}
+
+fn setup_smiley_sprite(renderer: &mut Renderer, sprite_system: &mut SpriteSystem) -> SpriteSheetID {
+    let texture = texture_from_image_path(renderer, "resources/smiley.png");
+    let sprite = Rect {
+        x: 0,
+        y: 0,
+        w: texture.width,
+        h: texture.height,
+    };
+    sprite_system.add_spritesheet(texture, &[sprite], Some((255, 0, 255)))
+}
+
 fn main() {
     let window_width = 800;
     let window_height = 600;
@@ -208,41 +260,14 @@ fn main() {
     renderer.on_window_resize(window_width, window_height);
 
     /* Main loop */
-    let smiley_texture = texture_from_image_path(&mut renderer, "resources/smiley.png");
-    let spritesheet_texture = texture_from_image_path(&mut renderer, "resources/spritesheet.png");
-    let sprite_rects: [Rect; 4] = [
-        // "1"
-        Rect {
-            x: 0,
-            y: 0,
-            w: 32,
-            h: 32,
-        },
-        // "2"
-        Rect {
-            x: 32,
-            y: 0,
-            w: 32,
-            h: 32,
-        },
-        // "3"
-        Rect {
-            x: 0,
-            y: 32,
-            w: 32,
-            h: 32,
-        },
-        // "4"
-        Rect {
-            x: 32,
-            y: 32,
-            w: 32,
-            h: 32,
-        },
-    ];
+    let mut sprites = SpriteSystem::new();
+    let smiley_sprite_sheet = setup_smiley_sprite(&mut renderer, &mut sprites);
+    let number_sprites = setup_number_sprites(&mut renderer, &mut sprites);
+
+    let (smiley_width, smiley_height) = sprites.spritesheet_dimensions(smiley_sprite_sheet);
     let smiley_center = (
-        (window_width - smiley_texture.width) as i32 / 2,
-        (window_height - smiley_texture.height) as i32 / 2,
+        (window_width - smiley_width) as i32 / 2,
+        (window_height - smiley_height) as i32 / 2,
     );
     let smiley_positions: [(i32, i32); 4] = [
         // right
@@ -307,35 +332,23 @@ fn main() {
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
-            current_sprite = (current_sprite + 1) % sprite_rects.len();
+            current_sprite = (current_sprite + 1) % 4;
         }
 
+        // draw button
         draw_button(&mut renderer, button_rect, button_pressed);
 
-        renderer.set_color_key(255, 0, 255);
-        let (smiley_x, smile_y) = smiley_positions[current_sprite];
-        renderer.draw_texture(
-            smiley_texture.id,
-            Rect {
-                x: smiley_x,
-                y: smile_y,
-                w: smiley_texture.width,
-                h: smiley_texture.height,
-            },
-            None,
-        );
+        // draw number on button
         let pressed_offset = if button_pressed { (1, 1) } else { (0, 0) };
-        renderer.draw_texture(
-            spritesheet_texture.id,
-            Rect {
-                x: button_rect.x + 20 + pressed_offset.0,
-                y: button_rect.y - 4 + pressed_offset.1,
-                w: 32,
-                h: 32,
-            },
-            Some(sprite_rects[current_sprite]),
+        let (num_x, num_y) = (
+            button_rect.x + 20 + pressed_offset.0,
+            button_rect.y - 4 + pressed_offset.1,
         );
-        renderer.disable_color_key();
+        sprites.draw_sprite(&mut renderer, number_sprites, current_sprite, num_x, num_y);
+
+        // draw smiley
+        let (smiley_x, smile_y) = smiley_positions[current_sprite];
+        sprites.draw_sprite(&mut renderer, smiley_sprite_sheet, 0, smiley_x, smile_y);
 
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();

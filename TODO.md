@@ -5,7 +5,7 @@
   - [x] draw rectangles
   - [x] draw circles
   - [x] draw with alpha value
-  - [ ] draw sprites
+  - [x] draw sprites
     - [ ] Aseprite JSON sprite sheet integration
   - [ ] draw fonts
   - [ ] render at different resolutions (reference: https://stackoverflow.com/questions/7071090/low-resolution-in-opengl-to-mimic-older-games)
