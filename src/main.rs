@@ -26,6 +26,7 @@ use sdl2::{
     VideoSubsystem,
 };
 use simple_logger::SimpleLogger;
+use std::env;
 use std::time::SystemTime;
 
 const CONFIG_FILE: &str = "config.ini";
@@ -225,6 +226,18 @@ fn main() {
         log::info!("No existing config file, new one will be created");
     }
 
+    /* Parse args */
+    let args: Vec<String> = env::args().collect();
+    let monitor = Monitor({
+        if args.len() < 3 {
+            0
+        } else if args[1] == "--monitor" {
+            args[2].parse::<i32>().unwrap_or_default()
+        } else {
+            0
+        }
+    });
+
     /* Initialize SDL */
     let sdl = sdl2::init().unwrap();
     let sdl_video = init_video(&sdl);
@@ -233,7 +246,7 @@ fn main() {
         "Base Project",
         window_width,
         window_height,
-        Monitor(1),
+        monitor,
     );
     log::info!("SDL initialized");
 
