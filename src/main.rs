@@ -11,13 +11,11 @@ mod input;
 use std::path::Path;
 use std::str;
 
+use crate::graphics::sprites;
+use aseprite::Frametag;
 use configparser::ini::Ini;
 use geometry::Rect;
-use graphics::{
-    rendering::{Renderer, TextureData},
-    sprites::{SpriteSheetID, SpriteSystem},
-};
-use image::GenericImageView;
+use graphics::{rendering::Renderer, sprites::SpriteSystem};
 use input::InputDevices;
 use sdl2::{
     event::Event,
@@ -141,67 +139,11 @@ fn point_is_inside_rect(point: glam::IVec2, rect: Rect) -> bool {
     horizontal_overlap && vertical_overlap
 }
 
-fn texture_from_image_path(renderer: &mut Renderer, path: &str) -> TextureData {
-    let image = image::open(path).unwrap().flipv();
-    let (width, height) = image.dimensions();
-    let data = image
-        .pixels()
-        .flat_map(|(_x, _y, pixel)| pixel.0)
-        .collect::<Vec<u8>>();
-    let id = renderer.add_texture(&data, width, height);
-
-    log::info!("Loaded image \"{}\"", path);
-
-    TextureData { id, width, height }
-}
-
-fn setup_number_sprites(
-    renderer: &mut Renderer,
-    sprite_system: &mut SpriteSystem,
-) -> SpriteSheetID {
-    let texture = texture_from_image_path(renderer, "resources/spritesheet.png");
-    let sprites: [Rect; 4] = [
-        // "1"
-        Rect {
-            x: 0,
-            y: 0,
-            w: 32,
-            h: 32,
-        },
-        // "2"
-        Rect {
-            x: 32,
-            y: 0,
-            w: 32,
-            h: 32,
-        },
-        // "3"
-        Rect {
-            x: 0,
-            y: 32,
-            w: 32,
-            h: 32,
-        },
-        // "4"
-        Rect {
-            x: 32,
-            y: 32,
-            w: 32,
-            h: 32,
-        },
-    ];
-    sprite_system.add_spritesheet(texture, &sprites, Some((255, 0, 255)))
-}
-
-fn setup_smiley_sprite(renderer: &mut Renderer, sprite_system: &mut SpriteSystem) -> SpriteSheetID {
-    let texture = texture_from_image_path(renderer, "resources/smiley.png");
-    let sprite = Rect {
-        x: 0,
-        y: 0,
-        w: texture.width,
-        h: texture.height,
-    };
-    sprite_system.add_spritesheet(texture, &[sprite], Some((255, 0, 255)))
+fn index_from_tag_name(frame_tags: &Vec<Frametag>, name: &str) -> Option<usize> {
+    frame_tags
+        .iter()
+        .find(|tag| tag.name == name)
+        .map(|tag| tag.from as usize)
 }
 
 fn main() {
@@ -270,26 +212,23 @@ fn main() {
     renderer.on_window_resize(window_width, window_height);
 
     /* Main loop */
-    let mut sprites = SpriteSystem::new();
-    let smiley_sprite_sheet = setup_smiley_sprite(&mut renderer, &mut sprites);
-    let number_sprites = setup_number_sprites(&mut renderer, &mut sprites);
+    let mut sprite_system = SpriteSystem::new();
 
-    let (smiley_width, smiley_height) = sprites.spritesheet_dimensions(smiley_sprite_sheet);
-    let smiley_center = (
-        (window_width - smiley_width) as i32 / 2,
-        (window_height - smiley_height) as i32 / 2,
+    let (smiley2, smiley2_data) = sprites::load_aseprite_spritesheet(
+        &mut sprite_system,
+        &mut renderer,
+        "resources/smiley2.png",
+        "resources/smiley2.json",
     );
-    let smiley_positions: [(i32, i32); 4] = [
-        // right
-        (smiley_center.0 + 100, smiley_center.1),
-        // top
-        (smiley_center.0, smiley_center.1 - 100),
-        // left
-        (smiley_center.0 - 100, smiley_center.1),
-        // down
-        (smiley_center.0, smiley_center.1 + 100),
+    let smiley2_frame_tags = smiley2_data.meta.frame_tags.unwrap();
+    let smiley2_frames = [
+        index_from_tag_name(&smiley2_frame_tags, "Right").unwrap(),
+        index_from_tag_name(&smiley2_frame_tags, "Up").unwrap(),
+        index_from_tag_name(&smiley2_frame_tags, "Left").unwrap(),
+        index_from_tag_name(&smiley2_frame_tags, "Down").unwrap(),
     ];
-    let mut current_sprite = 0;
+    let mut smiley2_frame_index = 0;
+    let mut smiley2_scaling = 1.0;
     let mut button_pressed = false;
 
     let mut event_pump = sdl.event_pump().unwrap();
@@ -342,24 +281,10 @@ fn main() {
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
-            current_sprite = (current_sprite + 1) % 4;
+            smiley2_frame_index = (smiley2_frame_index + 1) % 4;
         }
 
-        // draw button
-        draw_button(&mut renderer, button_rect, button_pressed);
-
-        // draw number on button
-        let pressed_offset = if button_pressed { (1, 1) } else { (0, 0) };
-        let (num_x, num_y) = (
-            button_rect.x + 20 + pressed_offset.0,
-            button_rect.y - 4 + pressed_offset.1,
-        );
-        sprites.draw_sprite(&mut renderer, number_sprites, current_sprite, num_x, num_y);
-
-        // draw smiley
-        let (smiley_x, smile_y) = smiley_positions[current_sprite];
-        sprites.draw_sprite(&mut renderer, smiley_sprite_sheet, 0, smiley_x, smile_y);
-
+        // draw dev ui
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();
         if show_dev_ui {
@@ -373,11 +298,34 @@ fn main() {
                     "Mouse left button pressed: {}",
                     input.mouse.left_button.is_pressed()
                 ));
+                dev_ui.slider("Smiley scaling", 0.1, 10.0, &mut smiley2_scaling);
+                if dev_ui.button("reset scaling") {
+                    smiley2_scaling = 1.0;
+                }
                 window.end();
             };
         }
 
         /* Render */
+        // draw button
+        draw_button(&mut renderer, button_rect, button_pressed);
+
+        // draw smiley
+        let smiley_w = 16.0 * smiley2_scaling;
+        let (smiley2_x, smiley2_y) = (
+            f32::round((window_width as f32 - smiley_w) / 2.0) as i32,
+            f32::round((window_height as f32 - smiley_w) / 2.0) as i32 - 100,
+        );
+        sprite_system.set_scaling(smiley2_scaling);
+        sprite_system.draw_sprite(
+            &mut renderer,
+            smiley2,
+            smiley2_frames[smiley2_frame_index],
+            smiley2_x,
+            smiley2_y,
+        );
+        sprite_system.reset_scaling();
+
         renderer.render();
         imgui_sdl.prepare_render(&dev_ui, &window);
         imgui_renderer.render(&mut imgui);

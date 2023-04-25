@@ -1,6 +1,7 @@
 use crate::{geometry::Rect, graphics::midpoint};
 use gl::types::*;
 use glam::Mat4;
+use image::GenericImageView;
 use itertools::Itertools;
 use std::{
     collections::HashMap,
@@ -103,6 +104,20 @@ struct VertexTextureUV {
 
 const VERTEX_SHADER_SRC: &str = include_str!("shaders/vertex.shader");
 const FRAGMENT_SHADER_SRC: &str = include_str!("shaders/fragment.shader");
+
+pub fn texture_from_image_path(renderer: &mut Renderer, path: &str) -> TextureData {
+    let image = image::open(path).unwrap().flipv();
+    let (width, height) = image.dimensions();
+    let data = image
+        .pixels()
+        .flat_map(|(_x, _y, pixel)| pixel.0)
+        .collect::<Vec<u8>>();
+    let id = renderer.add_texture(&data, width, height);
+
+    log::info!("Loaded image \"{}\"", path);
+
+    TextureData { id, width, height }
+}
 
 macro_rules! assert_no_gl_error {
     () => {
