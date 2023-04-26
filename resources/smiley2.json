@@ -6,7 +6,7 @@
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
     "sourceSize": { "w": 16, "h": 16 },
-    "duration": 100
+    "duration": 200
    },
    {
     "filename": "smiley2 1.aseprite",
@@ -15,7 +15,7 @@
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
     "sourceSize": { "w": 16, "h": 16 },
-    "duration": 100
+    "duration": 300
    },
    {
     "filename": "smiley2 2.aseprite",
@@ -24,7 +24,7 @@
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
     "sourceSize": { "w": 16, "h": 16 },
-    "duration": 100
+    "duration": 200
    },
    {
     "filename": "smiley2 3.aseprite",
@@ -33,7 +33,43 @@
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
     "sourceSize": { "w": 16, "h": 16 },
-    "duration": 100
+    "duration": 300
+   },
+   {
+    "filename": "smiley2 4.aseprite",
+    "frame": { "x": 64, "y": 0, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 200
+   },
+   {
+    "filename": "smiley2 5.aseprite",
+    "frame": { "x": 80, "y": 0, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 300
+   },
+   {
+    "filename": "smiley2 6.aseprite",
+    "frame": { "x": 96, "y": 0, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 200
+   },
+   {
+    "filename": "smiley2 7.aseprite",
+    "frame": { "x": 112, "y": 0, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 300
    }
  ],
  "meta": {
@@ -41,13 +77,13 @@
   "version": "1.2.40-x64",
   "image": "smiley2.png",
   "format": "RGBA8888",
-  "size": { "w": 64, "h": 16 },
+  "size": { "w": 128, "h": 16 },
   "scale": "1",
   "frameTags": [
-   { "name": "Down", "from": 0, "to": 0, "direction": "forward" },
-   { "name": "Right", "from": 1, "to": 1, "direction": "forward" },
-   { "name": "Up", "from": 2, "to": 2, "direction": "forward" },
-   { "name": "Left", "from": 3, "to": 3, "direction": "forward" }
+   { "name": "Down", "from": 0, "to": 1, "direction": "forward" },
+   { "name": "Right", "from": 2, "to": 3, "direction": "forward" },
+   { "name": "Up", "from": 4, "to": 5, "direction": "forward" },
+   { "name": "Left", "from": 6, "to": 7, "direction": "forward" }
   ],
   "layers": [
    { "name": "Layer 1", "opacity": 255, "blendMode": "normal" }

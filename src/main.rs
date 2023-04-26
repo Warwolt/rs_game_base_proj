@@ -11,8 +11,10 @@ mod input;
 use std::path::Path;
 use std::str;
 
-use crate::graphics::sprites;
-use aseprite::Frametag;
+use crate::graphics::{
+    animation::{self, AnimationSystem},
+    sprites,
+};
 use configparser::ini::Ini;
 use geometry::Rect;
 use graphics::{rendering::Renderer, sprites::SpriteSystem};
@@ -126,6 +128,7 @@ fn draw_button(renderer: &mut Renderer, rect: Rect, pressed: bool) {
     renderer.draw_line(rect.x + 1, rect.y + rect_h - 1, rect.x + rect_w - 1, rect.y + rect_h - 1);
 }
 
+// TODO move this to geometry?
 fn point_is_inside_rect(point: glam::IVec2, rect: Rect) -> bool {
     let rect_x0 = rect.x;
     let rect_y0 = rect.y;
@@ -137,13 +140,6 @@ fn point_is_inside_rect(point: glam::IVec2, rect: Rect) -> bool {
     let vertical_overlap = rect_y0 <= point_y && point_y <= rect_y1;
 
     horizontal_overlap && vertical_overlap
-}
-
-fn index_from_tag_name(frame_tags: &Vec<Frametag>, name: &str) -> Option<usize> {
-    frame_tags
-        .iter()
-        .find(|tag| tag.name == name)
-        .map(|tag| tag.from as usize)
 }
 
 fn main() {
@@ -209,35 +205,34 @@ fn main() {
 
     /* Setup rendering */
     let mut renderer = Renderer::new();
-    renderer.on_window_resize(window_width, window_height);
+    renderer.on_window_resize(window_width, window_height); // FIXME make width height args to new()
+    let mut sprite_system = SpriteSystem::new();
+    let mut animation_system = AnimationSystem::new();
 
     /* Main loop */
-    let mut sprite_system = SpriteSystem::new();
-
-    let (smiley2, smiley2_data) = sprites::load_aseprite_spritesheet(
+    let (smiley2, smiley2_sprite_sheet) = sprites::load_aseprite_spritesheet(
         &mut sprite_system,
         &mut renderer,
         "resources/smiley2.png",
         "resources/smiley2.json",
     );
-    let smiley2_frame_tags = smiley2_data.meta.frame_tags.unwrap();
-    let smiley2_frames = [
-        index_from_tag_name(&smiley2_frame_tags, "Right").unwrap(),
-        index_from_tag_name(&smiley2_frame_tags, "Up").unwrap(),
-        index_from_tag_name(&smiley2_frame_tags, "Left").unwrap(),
-        index_from_tag_name(&smiley2_frame_tags, "Down").unwrap(),
-    ];
-    let mut smiley2_frame_index = 0;
-    let mut smiley2_scaling = 1.0;
+    let smiley2_animation = animation::add_asperite_sprite_sheet_animation(
+        &mut animation_system,
+        &smiley2_sprite_sheet,
+        "Down",
+    );
+    let mut smiley2_scaling = 5.0;
+
     let mut button_pressed = false;
 
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
     let mut show_dev_ui = config.getbool("Imgui", "Show").unwrap().unwrap();
+
     'main_loop: loop {
         /* Input */
         let time_now = SystemTime::now();
-        let _delta_time_ms = time_now.duration_since(prev_time).unwrap().as_millis();
+        let delta_time_ms = time_now.duration_since(prev_time).unwrap().as_millis();
         prev_time = time_now;
 
         for event in event_pump.poll_iter() {
@@ -260,11 +255,7 @@ fn main() {
         input.mouse.update();
 
         /* Update */
-        renderer.clear();
-
-        // draw background
-        renderer.set_draw_color(0, 129, 129, 255);
-        renderer.draw_rect_fill(0, 0, window_width as i32, window_height as i32);
+        animation_system.update(delta_time_ms as u32);
 
         let button_width = 75;
         let button_height = 23;
@@ -274,14 +265,13 @@ fn main() {
             w: button_width,
             h: button_height,
         };
-
         let button_was_pressed = button_pressed;
         let mouse_is_inside_button = point_is_inside_rect(input.mouse.pos, button_rect);
         button_pressed = mouse_is_inside_button && input.mouse.left_button.is_pressed();
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
-            smiley2_frame_index = (smiley2_frame_index + 1) % 4;
+            animation_system.step_to_next_frame(smiley2_animation);
         }
 
         // draw dev ui
@@ -307,6 +297,11 @@ fn main() {
         }
 
         /* Render */
+        // draw background
+        renderer.clear();
+        renderer.set_draw_color(0, 129, 129, 255);
+        renderer.draw_rect_fill(0, 0, window_width as i32, window_height as i32);
+
         // draw button
         draw_button(&mut renderer, button_rect, button_pressed);
 
@@ -316,14 +311,9 @@ fn main() {
             f32::round((window_width as f32 - smiley_w) / 2.0) as i32,
             f32::round((window_height as f32 - smiley_w) / 2.0) as i32 - 100,
         );
+        let smiley2_frame = animation_system.current_frame(smiley2_animation);
         sprite_system.set_scaling(smiley2_scaling);
-        sprite_system.draw_sprite(
-            &mut renderer,
-            smiley2,
-            smiley2_frames[smiley2_frame_index],
-            smiley2_x,
-            smiley2_y,
-        );
+        sprite_system.draw_sprite(&mut renderer, smiley2, smiley2_frame, smiley2_x, smiley2_y);
         sprite_system.reset_scaling();
 
         renderer.render();
