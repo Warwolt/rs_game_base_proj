@@ -32,6 +32,9 @@
 
 - [ ] dev tools
   - [ ] add profiler (https://crates.io/crates/microprofile)
-  - [ ] setup hot reloading (https://robert.kra.hn/posts/hot-reloading-rust/)
+  - [ ] soure code hot reloading (https://robert.kra.hn/posts/hot-reloading-rust/)
+  - [ ] resource hot reloading
+    - [ ] sprites
+    - [ ] sounds
   - [ ] deserialize ini file into a struct
   - [ ] measure frame count

@@ -72,6 +72,13 @@ impl AnimationSystem {
     }
 
     #[allow(dead_code)]
+    pub fn reset_animation(&mut self, animation_id: AnimationID) {
+        let mut animation = self.animations.get_mut(&animation_id).unwrap();
+        animation.current_frame = animation.from;
+        animation.playback_pos_ms = 0;
+    }
+
+    #[allow(dead_code)]
     pub fn step_to_next_frame(&mut self, animation_id: AnimationID) {
         let animation = self.animations.get_mut(&animation_id).unwrap();
         animation.current_frame = if animation.current_frame + 1 > animation.to {

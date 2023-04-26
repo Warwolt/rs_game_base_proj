@@ -11,12 +11,16 @@ mod geometry;
 mod graphics;
 mod input;
 
-use std::path::Path;
 use std::str;
+use std::{collections::HashMap, path::Path};
 
-use crate::graphics::{
-    animation::{self, AnimationSystem},
-    sprites,
+use crate::graphics::animation::AnimationID;
+use crate::{
+    graphics::{
+        animation::{self, AnimationSystem},
+        sprites,
+    },
+    input::input_stack::InputStack,
 };
 use configparser::ini::Ini;
 use geometry::Rect;
@@ -30,6 +34,14 @@ use sdl2::{
 use simple_logger::SimpleLogger;
 use std::env;
 use std::time::SystemTime;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Direction {
+    Right,
+    Up,
+    Left,
+    Down,
+}
 
 const CONFIG_FILE: &str = "config.ini";
 
@@ -218,12 +230,26 @@ fn main() {
         "resources/smiley.png",
         "resources/smiley.json",
     );
-    let smiley_animation = animation::add_asperite_sprite_sheet_animation(
-        &mut animation_system,
-        &smiley_sprite_sheet,
-        "Down",
-    );
     let mut smiley_scaling = 5.0;
+    let mut smiley_direction = Direction::Down;
+    let mut smiley_input_stack = InputStack::<Direction>::new();
+    let mut smiley_animations = HashMap::<Direction, AnimationID>::new();
+    let animation_mappings = [
+        (Direction::Right, "Right"),
+        (Direction::Up, "Up"),
+        (Direction::Left, "Left"),
+        (Direction::Down, "Down"),
+    ];
+    for (direction, frame_tag_name) in animation_mappings {
+        smiley_animations.entry(direction).or_insert(
+            animation::add_asperite_sprite_sheet_animation(
+                &mut animation_system,
+                &smiley_sprite_sheet,
+                frame_tag_name,
+            ),
+        );
+        animation_system.start_animation(smiley_animations[&direction]);
+    }
 
     let mut button_pressed = false;
 
@@ -252,6 +278,23 @@ fn main() {
             show_dev_ui = !show_dev_ui;
         }
 
+        // update smiley direction
+        let smiley_input_mappings = [
+            (Keycode::Right, Direction::Right),
+            (Keycode::Up, Direction::Up),
+            (Keycode::Left, Direction::Left),
+            (Keycode::Down, Direction::Down),
+        ];
+        for (keycode, direction) in smiley_input_mappings {
+            if input.keyboard.is_pressed_now(keycode) {
+                smiley_input_stack.push(direction);
+            }
+            if input.keyboard.is_released_now(keycode) {
+                smiley_input_stack.remove(&direction);
+            }
+        }
+        smiley_direction = *smiley_input_stack.top().unwrap_or(&smiley_direction);
+
         animation_system.update(delta_time_ms as u32);
 
         let button_width = 75;
@@ -268,7 +311,7 @@ fn main() {
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
-            animation_system.step_to_next_frame(smiley_animation);
+            animation_system.reset_animation(smiley_animations[&smiley_direction]);
         }
 
         // draw dev ui
@@ -285,6 +328,7 @@ fn main() {
                     "Mouse left button pressed: {}",
                     input.mouse.left_button.is_pressed()
                 ));
+                dev_ui.text(format!("direction = {:?}", smiley_direction));
                 dev_ui.slider("Smiley scaling", 0.1, 10.0, &mut smiley_scaling);
                 if dev_ui.button("reset scaling") {
                     smiley_scaling = 1.0;
@@ -308,7 +352,7 @@ fn main() {
             f32::round((window_width as f32 - smiley_w) / 2.0) as i32,
             f32::round((window_height as f32 - smiley_w) / 2.0) as i32 - 100,
         );
-        let smiley_frame = animation_system.current_frame(smiley_animation);
+        let smiley_frame = animation_system.current_frame(smiley_animations[&smiley_direction]);
         sprite_system.set_scaling(smiley_scaling);
         sprite_system.draw_sprite(&mut renderer, smiley, smiley_frame, smiley_x, smiley_y);
         sprite_system.reset_scaling();
