@@ -1,18 +1,3 @@
-pub struct InputDevices {
-    pub mouse: Mouse,
-}
-
-#[allow(dead_code)]
-pub struct Mouse {
-    pub pos: glam::IVec2,
-    pub scroll_amount: u32,
-    pub left_button: Button,
-    pub right_button: Button,
-    pub middle_button: Button,
-    pub x1_button: Button,
-    pub x2_button: Button,
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Button {
     state: ButtonState,
@@ -26,90 +11,13 @@ pub enum ButtonEvent {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum ButtonState {
+pub enum ButtonState {
     Released,
     ReleasedNow,
     Pressed,
     PressedNow,
 }
 
-impl InputDevices {
-    pub fn new() -> Self {
-        InputDevices {
-            mouse: Mouse::new(),
-        }
-    }
-}
-
-impl Mouse {
-    pub fn new() -> Self {
-        Mouse {
-            pos: glam::IVec2::new(0, 0),
-            scroll_amount: 0,
-            left_button: Button::new(),
-            right_button: Button::new(),
-            middle_button: Button::new(),
-            x1_button: Button::new(),
-            x2_button: Button::new(),
-        }
-    }
-
-    pub fn handle_event(&mut self, event: &sdl2::event::Event) {
-        use sdl2::mouse::MouseButton;
-        match event {
-            sdl2::event::Event::MouseButtonDown { mouse_btn, .. } => match mouse_btn {
-                MouseButton::Left => {
-                    self.left_button.register_event(ButtonEvent::Down);
-                }
-                MouseButton::Middle => {
-                    self.middle_button.register_event(ButtonEvent::Down);
-                }
-                MouseButton::Right => {
-                    self.right_button.register_event(ButtonEvent::Down);
-                }
-                MouseButton::X1 => {
-                    self.x1_button.register_event(ButtonEvent::Down);
-                }
-                MouseButton::X2 => {
-                    self.x2_button.register_event(ButtonEvent::Down);
-                }
-                _ => (),
-            },
-            sdl2::event::Event::MouseButtonUp { mouse_btn, .. } => match mouse_btn {
-                MouseButton::Left => {
-                    self.left_button.register_event(ButtonEvent::Up);
-                }
-                MouseButton::Middle => {
-                    self.middle_button.register_event(ButtonEvent::Up);
-                }
-                MouseButton::Right => {
-                    self.right_button.register_event(ButtonEvent::Up);
-                }
-                MouseButton::X1 => {
-                    self.x1_button.register_event(ButtonEvent::Up);
-                }
-                MouseButton::X2 => {
-                    self.x2_button.register_event(ButtonEvent::Up);
-                }
-                _ => (),
-            },
-            sdl2::event::Event::MouseMotion { x, y, .. } => {
-                self.pos = glam::ivec2(*x, *y);
-            }
-            _ => {}
-        }
-    }
-
-    pub fn update(&mut self) {
-        self.left_button.update();
-        self.right_button.update();
-        self.middle_button.update();
-        self.x1_button.update();
-        self.x2_button.update();
-    }
-}
-
-#[allow(dead_code)]
 impl Button {
     pub fn new() -> Self {
         Button {
@@ -127,18 +35,22 @@ impl Button {
         self.event = None;
     }
 
+    #[allow(dead_code)]
     pub fn is_released(&self) -> bool {
         self.state == ButtonState::Released || self.state == ButtonState::ReleasedNow
     }
 
+    #[allow(dead_code)]
     pub fn is_pressed(&self) -> bool {
         self.state == ButtonState::Pressed || self.state == ButtonState::PressedNow
     }
 
+    #[allow(dead_code)]
     pub fn is_released_now(&self) -> bool {
         self.state == ButtonState::ReleasedNow
     }
 
+    #[allow(dead_code)]
     pub fn is_pressed_now(&self) -> bool {
         self.state == ButtonState::PressedNow
     }

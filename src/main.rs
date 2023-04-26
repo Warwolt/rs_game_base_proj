@@ -3,6 +3,9 @@ extern crate imgui;
 extern crate imgui_opengl_renderer;
 extern crate imgui_sdl2;
 extern crate sdl2;
+#[cfg(test)]
+#[macro_use]
+extern crate parameterized;
 
 mod geometry;
 mod graphics;
@@ -20,7 +23,6 @@ use geometry::Rect;
 use graphics::{rendering::Renderer, sprites::SpriteSystem};
 use input::InputDevices;
 use sdl2::{
-    event::Event,
     keyboard::Keycode,
     video::{GLContext, GLProfile, Window},
     VideoSubsystem,
@@ -237,24 +239,19 @@ fn main() {
 
         for event in event_pump.poll_iter() {
             imgui_sdl.handle_event(&mut imgui, &event);
-            input.mouse.handle_event(&event);
-
-            match event {
-                Event::Quit { .. } => break 'main_loop,
-                Event::KeyDown { keycode, .. } => {
-                    if keycode == Some(Keycode::Escape) {
-                        break 'main_loop;
-                    }
-                    if keycode == Some(Keycode::F3) {
-                        show_dev_ui = !show_dev_ui;
-                    }
-                }
-                _ => {}
-            }
+            input.register_event(&event);
         }
-        input.mouse.update();
+
+        input.update();
 
         /* Update */
+        if input.keyboard.is_pressed_now(Keycode::Escape) || input.quit {
+            break 'main_loop;
+        }
+        if input.keyboard.is_pressed(Keycode::F3) {
+            show_dev_ui = !show_dev_ui;
+        }
+
         animation_system.update(delta_time_ms as u32);
 
         let button_width = 75;
