@@ -210,18 +210,18 @@ fn main() {
     let mut animation_system = AnimationSystem::new();
 
     /* Main loop */
-    let (smiley2, smiley2_sprite_sheet) = sprites::load_aseprite_spritesheet(
+    let (smiley, smiley_sprite_sheet) = sprites::load_aseprite_spritesheet(
         &mut sprite_system,
         &mut renderer,
-        "resources/smiley2.png",
-        "resources/smiley2.json",
+        "resources/smiley.png",
+        "resources/smiley.json",
     );
-    let smiley2_animation = animation::add_asperite_sprite_sheet_animation(
+    let smiley_animation = animation::add_asperite_sprite_sheet_animation(
         &mut animation_system,
-        &smiley2_sprite_sheet,
+        &smiley_sprite_sheet,
         "Down",
     );
-    let mut smiley2_scaling = 5.0;
+    let mut smiley_scaling = 5.0;
 
     let mut button_pressed = false;
 
@@ -271,7 +271,7 @@ fn main() {
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
-            animation_system.step_to_next_frame(smiley2_animation);
+            animation_system.step_to_next_frame(smiley_animation);
         }
 
         // draw dev ui
@@ -288,9 +288,9 @@ fn main() {
                     "Mouse left button pressed: {}",
                     input.mouse.left_button.is_pressed()
                 ));
-                dev_ui.slider("Smiley scaling", 0.1, 10.0, &mut smiley2_scaling);
+                dev_ui.slider("Smiley scaling", 0.1, 10.0, &mut smiley_scaling);
                 if dev_ui.button("reset scaling") {
-                    smiley2_scaling = 1.0;
+                    smiley_scaling = 1.0;
                 }
                 window.end();
             };
@@ -306,14 +306,14 @@ fn main() {
         draw_button(&mut renderer, button_rect, button_pressed);
 
         // draw smiley
-        let smiley_w = 16.0 * smiley2_scaling;
-        let (smiley2_x, smiley2_y) = (
+        let smiley_w = 16.0 * smiley_scaling;
+        let (smiley_x, smiley_y) = (
             f32::round((window_width as f32 - smiley_w) / 2.0) as i32,
             f32::round((window_height as f32 - smiley_w) / 2.0) as i32 - 100,
         );
-        let smiley2_frame = animation_system.current_frame(smiley2_animation);
-        sprite_system.set_scaling(smiley2_scaling);
-        sprite_system.draw_sprite(&mut renderer, smiley2, smiley2_frame, smiley2_x, smiley2_y);
+        let smiley_frame = animation_system.current_frame(smiley_animation);
+        sprite_system.set_scaling(smiley_scaling);
+        sprite_system.draw_sprite(&mut renderer, smiley, smiley_frame, smiley_x, smiley_y);
         sprite_system.reset_scaling();
 
         renderer.render();
