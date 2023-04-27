@@ -9,8 +9,8 @@ use sdl2::VideoSubsystem;
 
 struct Monitor(i32);
 
-const VERTEX_SHADER_SRC: &str = include_str!("rgb_triangle.vert");
-const FRAGMENT_SHADER_SRC: &str = include_str!("rgb_triangle.frag");
+const VERTEX_SHADER_SRC: &str = include_str!("opengl_rgb_triangle.vert");
+const FRAGMENT_SHADER_SRC: &str = include_str!("opengl_rgb_triangle.frag");
 
 fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {
     let sdl_video = sdl.video().unwrap();

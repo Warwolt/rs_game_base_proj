@@ -11,13 +11,13 @@ pub struct AnimationSystem {
 
 #[derive(Debug, PartialEq, Eq)]
 struct AnimationData {
-    from: usize,
-    to: usize,
-    is_playing: bool,
-    current_frame: usize,
-    playback_pos_ms: u32,
-    frame_times_ms: Vec<u32>,
-    total_length_ms: u32,
+    pub from: usize,
+    pub to: usize,
+    pub is_playing: bool,
+    pub current_frame: usize,
+    pub playback_pos_ms: u32,
+    pub frame_times_ms: Vec<u32>,
+    pub total_length_ms: u32,
 }
 
 impl AnimationSystem {
@@ -61,6 +61,35 @@ impl AnimationSystem {
         id
     }
 
+    pub fn reload_animation(
+        &mut self,
+        id: AnimationID,
+        from: usize,
+        to: usize,
+        frame_periods_ms: &[u32],
+    ) {
+        let mut total_length_ms = 0;
+        let mut frame_times_ms = Vec::new();
+        for period in frame_periods_ms {
+            let start_time = total_length_ms;
+            frame_times_ms.push(start_time);
+            total_length_ms += period;
+        }
+
+        self.animations.insert(
+            id,
+            AnimationData {
+                from,
+                to,
+                is_playing: false,
+                current_frame: from,
+                playback_pos_ms: 0,
+                frame_times_ms,
+                total_length_ms,
+            },
+        );
+    }
+
     #[allow(dead_code)]
     pub fn start_animation(&mut self, animation_id: AnimationID) {
         self.animations.get_mut(&animation_id).unwrap().is_playing = true;
@@ -69,6 +98,12 @@ impl AnimationSystem {
     #[allow(dead_code)]
     pub fn stop_animation(&mut self, animation_id: AnimationID) {
         self.animations.get_mut(&animation_id).unwrap().is_playing = false;
+    }
+
+    #[allow(dead_code)]
+    pub fn restart_animation(&mut self, animation_id: AnimationID) {
+        self.reset_animation(animation_id);
+        self.start_animation(animation_id);
     }
 
     #[allow(dead_code)]
@@ -127,6 +162,23 @@ pub fn add_asperite_sprite_sheet_animation(
     animation_system.add_animation(from, to, &frame_periods_ms)
 }
 
+pub fn reload_aseperite_sprite_sheet_animation(
+    id: AnimationID,
+    animation_system: &mut AnimationSystem,
+    sprite_sheet: &aseprite::SpritesheetData,
+    frame_tag_name: &str,
+) {
+    let frame_tag = sprite_sheet_frame_tag(sprite_sheet, frame_tag_name);
+    let from = frame_tag.from as usize;
+    let to = frame_tag.to as usize;
+    let frame_periods_ms = sprite_sheet.frames[from..=to]
+        .iter()
+        .map(|frame| frame.duration)
+        .collect::<Vec<u32>>();
+
+    animation_system.reload_animation(id, from, to, &frame_periods_ms);
+}
+
 fn sprite_sheet_frame_tag(
     sprite_sheet: &aseprite::SpritesheetData,
     frame_tag_name: &str,
@@ -145,10 +197,12 @@ fn sprite_sheet_frame_tag(
 mod tests {
     use super::*;
 
+    // TODO: panics if to - from doesn't match length of frames
+
     #[test]
     fn initially_returns_first_frame() {
-        let frame_periods_ms = [0, 100];
         let mut animation_system = AnimationSystem::new();
+        let frame_periods_ms = [0, 100];
         let (from, to) = (0, 1);
         let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
 
@@ -159,8 +213,8 @@ mod tests {
 
     #[test]
     fn when_frame_period_elapsed_then_next_frame_is_selected() {
-        let frame_periods_ms = [100, 100];
         let mut animation_system = AnimationSystem::new();
+        let frame_periods_ms = [100, 100];
         let (from, to) = (1, 2);
         let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
 
@@ -174,9 +228,9 @@ mod tests {
 
     #[test]
     fn when_elapsed_time_exceeds_period_time_then_playback_wraps_around() {
-        let frame_periods_ms = [100, 100, 100, 100];
         let mut animation_system = AnimationSystem::new();
         let (from, to) = (1, 4);
+        let frame_periods_ms = [100, 100, 100, 100];
         let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
 
         let delta_time_ms = 400;
@@ -189,9 +243,9 @@ mod tests {
 
     #[test]
     fn if_playback_stopped_when_frame_period_elapsed_then_same_frame_is_selected() {
-        let frame_periods_ms = [100, 100];
         let mut animation_system = AnimationSystem::new();
         let (from, to) = (1, 2);
+        let frame_periods_ms = [100, 100];
         let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
 
         let delta_time_ms = 100;
@@ -205,8 +259,8 @@ mod tests {
 
     #[test]
     fn frames_can_be_manually_incremented() {
-        let frame_periods_ms = [100, 100];
         let mut animation_system = AnimationSystem::new();
+        let frame_periods_ms = [100, 100];
         let (from, to) = (1, 2);
         let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
 
@@ -218,16 +272,46 @@ mod tests {
 
     #[test]
     fn step_to_next_frame_wraps_around() {
-        let frame_periods_ms = [100, 100, 100];
         let mut animation_system = AnimationSystem::new();
+        let frame_periods_ms = [100, 100, 100];
         let (from, to) = (0, 2);
         let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
 
-        animation_system.step_to_next_frame(animation_id); // 1
-        animation_system.step_to_next_frame(animation_id); // 2
-        animation_system.step_to_next_frame(animation_id); // 0
+        animation_system.step_to_next_frame(animation_id); // -> 1
+        animation_system.step_to_next_frame(animation_id); // -> 2
+        animation_system.step_to_next_frame(animation_id); // -> 0
         let frame = animation_system.current_frame(animation_id);
 
         assert_eq!(frame, 0);
+    }
+
+    #[test]
+    fn reloading_animation_resets_current_frame_to_from_value() {
+        let (from, to) = (3, 4);
+        let frame_periods_ms = [100, 100];
+        let mut animation_system = AnimationSystem::new();
+        let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
+
+        animation_system.step_to_next_frame(animation_id);
+        animation_system.reload_animation(animation_id, from, to, &frame_periods_ms);
+        let frame = animation_system.current_frame(animation_id);
+
+        assert_eq!(frame, 3);
+    }
+
+    #[test]
+    fn reloading_animation_can_use_new_frames() {
+        let (from, to) = (0, 1);
+        let frame_periods_ms = [100, 100];
+        let mut animation_system = AnimationSystem::new();
+        let animation_id = animation_system.add_animation(from, to, &frame_periods_ms);
+
+        let (from, to) = (2, 4);
+        let frame_periods_ms = [100, 100, 100];
+        animation_system.reload_animation(animation_id, from, to, &frame_periods_ms);
+        animation_system.step_to_next_frame(animation_id); // 2 -> 3
+        let frame = animation_system.current_frame(animation_id);
+
+        assert_eq!(frame, 3);
     }
 }

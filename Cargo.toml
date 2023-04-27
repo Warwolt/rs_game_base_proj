@@ -11,6 +11,8 @@ glam = "0.23.0"
 
 # Platform
 sdl2 = "0.34.5"
+notify = "5.1.0"
+same-file = "1.0.6"
 
 # Graphics
 gl = "0.10.0"

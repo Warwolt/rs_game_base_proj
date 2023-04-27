@@ -9,12 +9,13 @@ extern crate parameterized;
 
 mod geometry;
 mod graphics;
+mod hot_reload;
 mod input;
 
-use std::str;
-use std::{collections::HashMap, path::Path};
-
 use crate::graphics::animation::AnimationID;
+use crate::graphics::rendering;
+use crate::hot_reload::AsepriteReloader;
+use crate::input::file::FileWatcher;
 use crate::{
     graphics::{
         animation::{self, AnimationSystem},
@@ -33,7 +34,10 @@ use sdl2::{
 };
 use simple_logger::SimpleLogger;
 use std::env;
-use std::time::SystemTime;
+use std::path::PathBuf;
+use std::str;
+use std::time::{Duration, SystemTime};
+use std::{collections::HashMap, path::Path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Direction {
@@ -224,38 +228,66 @@ fn main() {
     let mut animation_system = AnimationSystem::new();
 
     /* Main loop */
-    let (smiley, smiley_sprite_sheet) = sprites::load_aseprite_spritesheet(
-        &mut sprite_system,
-        &mut renderer,
-        "resources/smiley.png",
-        "resources/smiley.json",
-    );
-    let mut smiley_scaling = 5.0;
-    let mut smiley_direction = Direction::Down;
-    let mut smiley_input_stack = InputStack::<Direction>::new();
+    let smiley_image_path = PathBuf::from(r"resources/smiley.png");
+    let smiley_json_path = &PathBuf::from(r"resources/smiley.json");
+    let smiley_texture_id =
+        rendering::load_texture_from_image_path(&mut renderer, &smiley_image_path).unwrap();
     let mut smiley_animations = HashMap::<Direction, AnimationID>::new();
-    let animation_mappings = [
+    let smiley_animation_mappings = [
         (Direction::Right, "Right"),
         (Direction::Up, "Up"),
         (Direction::Left, "Left"),
         (Direction::Down, "Down"),
     ];
-    for (direction, frame_tag_name) in animation_mappings {
-        smiley_animations.entry(direction).or_insert(
-            animation::add_asperite_sprite_sheet_animation(
-                &mut animation_system,
-                &smiley_sprite_sheet,
-                frame_tag_name,
-            ),
-        );
-        animation_system.start_animation(smiley_animations[&direction]);
-    }
+    let smiley_sprite_sheet_id;
+    {
+        let sprite_sheet_data = sprites::load_aseprite_sprite_sheet(&smiley_json_path).unwrap();
+        let frames = sprites::aseprite_sprite_sheet_frames(&sprite_sheet_data);
+        smiley_sprite_sheet_id = sprite_system.add_spritesheet(smiley_texture_id, &frames, None);
+
+        for (direction, frame_tag_name) in smiley_animation_mappings {
+            smiley_animations.entry(direction).or_insert(
+                animation::add_asperite_sprite_sheet_animation(
+                    &mut animation_system,
+                    &sprite_sheet_data,
+                    frame_tag_name,
+                ),
+            );
+            animation_system.start_animation(smiley_animations[&direction]);
+        }
+    };
+    let mut smiley_scaling = 5.0;
+    let mut smiley_direction = Direction::Down;
+    let mut smiley_input_stack = InputStack::<Direction>::new();
 
     let mut button_pressed = false;
-
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
     let mut show_dev_ui = config.getbool("Imgui", "Show").unwrap().unwrap();
+
+    // set up hot reloading
+    let file_watcher_debounce = Duration::from_millis(1000);
+    let mut file_watcher = FileWatcher::new(&PathBuf::from("./resources"), file_watcher_debounce);
+    let mut aseprite_reloader = AsepriteReloader::new();
+    {
+        // register sprites
+        aseprite_reloader.register_aseprite_sprite_sheet(
+            &smiley_image_path,
+            &smiley_json_path,
+            smiley_texture_id,
+            smiley_sprite_sheet_id,
+        );
+
+        // register animations
+        for (direction, frame_tag_name) in smiley_animation_mappings {
+            let animation_id = smiley_animations[&direction];
+            aseprite_reloader.register_aseprite_animation(
+                smiley_json_path,
+                animation_id,
+                frame_tag_name,
+            );
+        }
+    }
 
     'main_loop: loop {
         /* Input */
@@ -267,10 +299,17 @@ fn main() {
             imgui_sdl.handle_event(&mut imgui, &event);
             input.register_event(&event);
         }
-
         input.update();
 
         /* Update */
+        let updated_resource_files = file_watcher.update(delta_time_ms);
+        aseprite_reloader.update(
+            &mut renderer,
+            &mut sprite_system,
+            &mut animation_system,
+            &updated_resource_files,
+        );
+
         if input.keyboard.is_pressed_now(Keycode::Escape) || input.quit {
             break 'main_loop;
         }
@@ -294,8 +333,6 @@ fn main() {
             }
         }
         smiley_direction = *smiley_input_stack.top().unwrap_or(&smiley_direction);
-
-        animation_system.update(delta_time_ms as u32);
 
         let button_width = 75;
         let button_height = 23;
@@ -333,11 +370,14 @@ fn main() {
                 if dev_ui.button("reset scaling") {
                     smiley_scaling = 1.0;
                 }
+
                 window.end();
             };
         }
 
         /* Render */
+        animation_system.update(delta_time_ms as u32);
+
         // draw background
         renderer.clear();
         renderer.set_draw_color(0, 129, 129, 255);
@@ -354,7 +394,13 @@ fn main() {
         );
         let smiley_frame = animation_system.current_frame(smiley_animations[&smiley_direction]);
         sprite_system.set_scaling(smiley_scaling);
-        sprite_system.draw_sprite(&mut renderer, smiley, smiley_frame, smiley_x, smiley_y);
+        sprite_system.draw_sprite(
+            &mut renderer,
+            smiley_sprite_sheet_id,
+            smiley_frame,
+            smiley_x,
+            smiley_y,
+        );
         sprite_system.reset_scaling();
 
         renderer.render();

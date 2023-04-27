@@ -7,6 +7,7 @@ use std::{
     collections::HashMap,
     ffi::{c_void, CString},
     mem::size_of,
+    path::Path,
 };
 
 #[derive(Debug)]
@@ -18,11 +19,9 @@ pub struct Renderer {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Hash)]
 pub struct TextureID(u32);
 
-#[derive(Debug, Clone, Copy)]
-pub struct TextureData {
-    pub id: TextureID,
-    pub width: u32,
-    pub height: u32,
+#[derive(Debug)]
+pub enum LoadError {
+    ImageError(image::ImageError),
 }
 
 #[derive(Debug)]
@@ -34,6 +33,12 @@ struct ShaderData {
     vao: u32,
     white_texture_id: u32,
     textures: HashMap<TextureID, TextureData>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TextureData {
+    width: u32,
+    height: u32,
 }
 
 #[derive(Debug)]
@@ -105,8 +110,13 @@ struct VertexTextureUV {
 const VERTEX_SHADER_SRC: &str = include_str!("shaders/vertex.shader");
 const FRAGMENT_SHADER_SRC: &str = include_str!("shaders/fragment.shader");
 
-pub fn texture_from_image_path(renderer: &mut Renderer, path: &str) -> TextureData {
-    let image = image::open(path).unwrap().flipv();
+pub fn load_texture_from_image_path(
+    renderer: &mut Renderer,
+    path: &Path,
+) -> Result<TextureID, LoadError> {
+    let image = image::open(path)
+        .map_err(|e| LoadError::ImageError(e))?
+        .flipv();
     let (width, height) = image.dimensions();
     let data = image
         .pixels()
@@ -114,9 +124,25 @@ pub fn texture_from_image_path(renderer: &mut Renderer, path: &str) -> TextureDa
         .collect::<Vec<u8>>();
     let id = renderer.add_texture(&data, width, height);
 
-    log::info!("Loaded image \"{}\"", path);
+    Ok(id)
+}
 
-    TextureData { id, width, height }
+pub fn reload_texture_from_image_path(
+    id: TextureID,
+    renderer: &mut Renderer,
+    path: &Path,
+) -> Result<(), LoadError> {
+    let image = image::open(path)
+        .map_err(|e| LoadError::ImageError(e))?
+        .flipv();
+    let (width, height) = image.dimensions();
+    let data = image
+        .pixels()
+        .flat_map(|(_x, _y, pixel)| pixel.0)
+        .collect::<Vec<u8>>();
+    renderer.reload_texture(id, &data, width, height);
+
+    Ok(())
 }
 
 macro_rules! assert_no_gl_error {
@@ -262,17 +288,22 @@ impl Renderer {
         }
     }
 
-    #[allow(dead_code)]
     pub fn add_texture(&mut self, rgba_data: &[u8], width: u32, height: u32) -> TextureID {
         let id = TextureID(new_texture());
         self.shader
             .textures
-            .insert(id, TextureData { id, width, height });
+            .insert(id, TextureData { width, height });
         upload_data_to_texture(id.0, rgba_data, width, height);
         id
     }
 
-    #[allow(dead_code)]
+    pub fn reload_texture(&mut self, id: TextureID, rgba_data: &[u8], width: u32, height: u32) {
+        self.shader
+            .textures
+            .insert(id, TextureData { width, height });
+        upload_data_to_texture(id.0, rgba_data, width, height);
+    }
+
     pub fn clear(&mut self) {
         self.draw.active_color = ColorRGBA(0, 0, 0, 255);
         self.draw.vertices.clear();

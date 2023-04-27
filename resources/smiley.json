@@ -70,6 +70,24 @@
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
     "sourceSize": { "w": 16, "h": 16 },
     "duration": 300
+   },
+   {
+    "filename": "smiley 8.aseprite",
+    "frame": { "x": 128, "y": 0, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 200
+   },
+   {
+    "filename": "smiley 9.aseprite",
+    "frame": { "x": 144, "y": 0, "w": 16, "h": 16 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 16 },
+    "sourceSize": { "w": 16, "h": 16 },
+    "duration": 300
    }
  ],
  "meta": {
@@ -77,7 +95,7 @@
   "version": "1.2.40-x64",
   "image": "smiley.png",
   "format": "RGBA8888",
-  "size": { "w": 128, "h": 16 },
+  "size": { "w": 160, "h": 16 },
   "scale": "1",
   "frameTags": [
    { "name": "Down", "from": 0, "to": 1, "direction": "forward" },

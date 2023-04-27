@@ -10,8 +10,8 @@ use sdl2::VideoSubsystem;
 
 struct Monitor(i32);
 
-const VERTEX_SHADER_SRC: &str = include_str!("textures.vert");
-const FRAGMENT_SHADER_SRC: &str = include_str!("textures.frag");
+const VERTEX_SHADER_SRC: &str = include_str!("opengl_textures.vert");
+const FRAGMENT_SHADER_SRC: &str = include_str!("opengl_textures.frag");
 
 fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {
     let sdl_video = sdl.video().unwrap();

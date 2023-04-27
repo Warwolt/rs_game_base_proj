@@ -1,11 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
-use crate::{
-    geometry::Rect,
-    graphics::rendering::{Renderer, TextureData},
-};
+use crate::{geometry::Rect, graphics::rendering::Renderer};
 
-use super::rendering::texture_from_image_path;
+use super::rendering::TextureID;
 
 #[derive(Debug)]
 pub struct SpriteSystem {
@@ -17,11 +14,37 @@ pub struct SpriteSystem {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SpriteSheetID(u32);
 
+#[derive(Debug)]
+pub enum LoadError {
+    IoError(std::io::Error),
+    JsonError(serde_json::error::Error),
+}
+
 #[derive(Debug, Clone)]
 struct SpriteSheetData {
-    texture: TextureData,
+    texture_id: TextureID,
     sprites: Vec<Rect>,
     color_key: Option<(u8, u8, u8)>,
+}
+
+pub fn load_aseprite_sprite_sheet(
+    json_path: &Path,
+) -> Result<aseprite::SpritesheetData, LoadError> {
+    let json_file = std::fs::File::open(json_path).map_err(|e| LoadError::IoError(e))?;
+    serde_json::from_reader(json_file).map_err(|e| LoadError::JsonError(e))
+}
+
+pub fn aseprite_sprite_sheet_frames(sprite_sheet_data: &aseprite::SpritesheetData) -> Vec<Rect> {
+    sprite_sheet_data
+        .frames
+        .iter()
+        .map(|frame| Rect {
+            x: frame.frame.x as i32,
+            y: frame.frame.y as i32,
+            w: frame.frame.w,
+            h: frame.frame.h,
+        })
+        .collect()
 }
 
 impl SpriteSystem {
@@ -35,13 +58,13 @@ impl SpriteSystem {
 
     pub fn add_spritesheet(
         &mut self,
-        texture: &TextureData,
+        texture: TextureID,
         sprites: &[Rect],
         color_key: Option<(u8, u8, u8)>,
     ) -> SpriteSheetID {
         let id = self.make_id();
         let sprite_sheet = SpriteSheetData {
-            texture: *texture,
+            texture_id: texture,
             sprites: Vec::from(sprites),
             color_key,
         };
@@ -49,10 +72,21 @@ impl SpriteSystem {
         id
     }
 
-    #[allow(dead_code)]
-    pub fn spritesheet_dimensions(&self, sprite_sheet: SpriteSheetID) -> (u32, u32) {
-        let sprite_sheet = &self.sprite_sheets[&sprite_sheet];
-        (sprite_sheet.texture.width, sprite_sheet.texture.height)
+    /// Updates an existing sprite sheet in the system
+    /// Used for hot reloading.
+    pub fn reload_sprite_sheet(
+        &mut self,
+        id: SpriteSheetID,
+        texture: TextureID,
+        sprites: &[Rect],
+        color_key: Option<(u8, u8, u8)>,
+    ) {
+        let sprite_sheet = SpriteSheetData {
+            texture_id: texture,
+            sprites: Vec::from(sprites),
+            color_key,
+        };
+        *self.sprite_sheets.get_mut(&id).unwrap() = sprite_sheet;
     }
 
     pub fn set_scaling(&mut self, scaling: f32) {
@@ -79,7 +113,7 @@ impl SpriteSystem {
         }
 
         renderer.draw_texture(
-            sprite_sheet.texture.id,
+            sprite_sheet.texture_id,
             Rect {
                 x,
                 y,
@@ -97,29 +131,4 @@ impl SpriteSystem {
         self.next_id += 1;
         SpriteSheetID(id)
     }
-}
-
-pub fn load_aseprite_spritesheet(
-    sprite_system: &mut SpriteSystem,
-    renderer: &mut Renderer,
-    image_path: &str,
-    json_path: &str,
-) -> (SpriteSheetID, aseprite::SpritesheetData) {
-    let json_file = std::fs::File::open(json_path).unwrap();
-    let sprite_sheet_data: aseprite::SpritesheetData = serde_json::from_reader(json_file).unwrap();
-    let texture = texture_from_image_path(renderer, image_path);
-    let frames = sprite_sheet_data
-        .frames
-        .iter()
-        .map(|frame| Rect {
-            x: frame.frame.x as i32,
-            y: frame.frame.y as i32,
-            w: frame.frame.w,
-            h: frame.frame.h,
-        })
-        .collect::<Vec<Rect>>();
-
-    let id = sprite_system.add_spritesheet(&texture, &frames, None);
-
-    (id, sprite_sheet_data)
 }
