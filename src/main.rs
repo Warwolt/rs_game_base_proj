@@ -274,7 +274,7 @@ fn main() {
         if input.keyboard.is_pressed_now(Keycode::Escape) || input.quit {
             break 'main_loop;
         }
-        if input.keyboard.is_pressed(Keycode::F3) {
+        if input.keyboard.is_pressed_now(Keycode::F3) {
             show_dev_ui = !show_dev_ui;
         }
 
