@@ -14,7 +14,7 @@
 
 - [ ] input
   - [x] update loop with delta time
-  - [ ] keyboard
+  - [x] keyboard
   - [x] mouse
   - [ ] gamepad
 
@@ -34,7 +34,7 @@
   - [ ] add profiler (https://crates.io/crates/microprofile)
   - [ ] soure code hot reloading (https://robert.kra.hn/posts/hot-reloading-rust/)
   - [ ] resource hot reloading
-    - [ ] sprites
+    - [x] sprites
     - [ ] sounds
   - [ ] deserialize ini file into a struct
   - [ ] measure frame count
