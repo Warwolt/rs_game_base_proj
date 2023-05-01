@@ -1,4 +1,5 @@
 pub mod button;
+pub mod config;
 pub mod file;
 pub mod input_stack;
 pub mod keyboard;

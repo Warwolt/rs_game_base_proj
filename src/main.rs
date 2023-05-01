@@ -15,6 +15,7 @@ mod input;
 use crate::graphics::animation::AnimationID;
 use crate::graphics::rendering;
 use crate::hot_reload::AsepriteReloader;
+use crate::input::config::ProgramConfig;
 use crate::input::file::FileWatcher;
 use crate::{
     graphics::{
@@ -23,7 +24,6 @@ use crate::{
     },
     input::input_stack::InputStack,
 };
-use configparser::ini::Ini;
 use geometry::Rect;
 use graphics::{rendering::Renderer, sprites::SpriteSystem};
 use input::InputDevices;
@@ -33,11 +33,11 @@ use sdl2::{
     VideoSubsystem,
 };
 use simple_logger::SimpleLogger;
+use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str;
 use std::time::{Duration, SystemTime};
-use std::{collections::HashMap, path::Path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Direction {
@@ -46,8 +46,6 @@ enum Direction {
     Left,
     Down,
 }
-
-const CONFIG_FILE: &str = "config.ini";
 
 fn init_logging() {
     SimpleLogger::new().init().unwrap();
@@ -169,18 +167,7 @@ fn main() {
     log::info!("Program start");
 
     /* Initialize configuration */
-    // TODO: setup a way of serializing/deserializing our own config struct
-    // instead of working directly with this `Ini` value
-    let mut config = Ini::new();
-    if Path::new("./config.ini").exists() {
-        // loading existing file
-        config.load("config.ini").unwrap();
-        log::info!("Read config file");
-    } else {
-        // set defaults on new file
-        config.set("Imgui", "Show", Some(String::from("false")));
-        log::info!("No existing config file, new one will be created");
-    }
+    let mut config = ProgramConfig::from_file(&PathBuf::from("config.ini"));
 
     /* Parse args */
     let args: Vec<String> = env::args().collect();
@@ -263,7 +250,6 @@ fn main() {
     let mut button_pressed = false;
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
-    let mut show_dev_ui = config.getbool("Imgui", "Show").unwrap().unwrap();
 
     // set up hot reloading
     let file_watcher_debounce = Duration::from_millis(1000);
@@ -314,7 +300,7 @@ fn main() {
             break 'main_loop;
         }
         if input.keyboard.is_pressed_now(Keycode::F3) {
-            show_dev_ui = !show_dev_ui;
+            config.show_dev_ui = !config.show_dev_ui;
         }
 
         // update smiley direction
@@ -354,7 +340,7 @@ fn main() {
         // draw dev ui
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
         let dev_ui = imgui.frame();
-        if show_dev_ui {
+        if config.show_dev_ui {
             if let Some(window) = dev_ui.window("Example Window").begin() {
                 dev_ui.text("Hello Win95 Button");
                 dev_ui.text(format!(
@@ -410,6 +396,5 @@ fn main() {
         window.gl_swap_window();
     }
 
-    config.set("Imgui", "Show", Some(show_dev_ui.to_string()));
-    config.write(CONFIG_FILE).unwrap();
+    config.write_to_disk();
 }
