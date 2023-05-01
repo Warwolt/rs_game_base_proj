@@ -67,14 +67,12 @@ fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {
     sdl_video
 }
 
-struct Monitor(i32);
-
 fn init_window(
     sdl_video: &VideoSubsystem,
     title: &str,
     width: u32,
     height: u32,
-    monitor: Monitor,
+    monitor: i32,
 ) -> Window {
     let mut window = sdl_video
         .window(title, width, height)
@@ -86,7 +84,7 @@ fn init_window(
         .build()
         .unwrap();
 
-    if let Ok(bounds) = sdl_video.display_bounds(monitor.0) {
+    if let Ok(bounds) = sdl_video.display_bounds(monitor) {
         window.set_position(
             sdl2::video::WindowPos::Positioned(bounds.x + (bounds.w - width as i32) / 2),
             sdl2::video::WindowPos::Positioned(bounds.y + (bounds.h - height as i32) / 2),
@@ -171,15 +169,9 @@ fn main() {
 
     /* Parse args */
     let args: Vec<String> = env::args().collect();
-    let monitor = Monitor({
-        if args.len() < 3 {
-            0
-        } else if args[1] == "--monitor" {
-            args[2].parse::<i32>().unwrap_or_default()
-        } else {
-            0
-        }
-    });
+    if args.len() > 1 && args[1] == "--monitor" {
+        config.monitor = args[2].parse::<u64>().unwrap();
+    }
 
     /* Initialize SDL */
     let sdl = sdl2::init().unwrap();
@@ -189,7 +181,7 @@ fn main() {
         "Base Project",
         window_width,
         window_height,
-        monitor,
+        config.monitor as i32,
     );
     log::info!("SDL initialized");
 
