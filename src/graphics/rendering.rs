@@ -59,7 +59,8 @@ struct VertexSection {
 
 #[derive(Debug)]
 struct DrawData {
-    active_color: ColorRGBA,
+    draw_color: ColorRGBA,
+    texture_blend_color: ColorRGBA,
     active_color_key: ColorRGBA,
     vertices: Vec<Vertex>,
     sections: Vec<VertexSection>,
@@ -235,7 +236,8 @@ impl Renderer {
                 textures: HashMap::new(),
             },
             draw: DrawData {
-                active_color: ColorRGBA(0, 0, 0, 255),
+                draw_color: ColorRGBA(0, 0, 0, 255),
+                texture_blend_color: ColorRGBA(255, 255, 255, 255),
                 active_color_key: ColorRGBA(0, 0, 0, 0),
                 vertices: Vec::new(),
                 sections: Vec::new(),
@@ -305,14 +307,19 @@ impl Renderer {
     }
 
     pub fn clear(&mut self) {
-        self.draw.active_color = ColorRGBA(0, 0, 0, 255);
+        self.draw.draw_color = ColorRGBA(0, 0, 0, 255);
         self.draw.vertices.clear();
         self.draw.sections.clear();
     }
 
     #[allow(dead_code)]
     pub fn set_draw_color(&mut self, r: u8, g: u8, b: u8, a: u8) {
-        self.draw.active_color = ColorRGBA(r, g, b, a);
+        self.draw.draw_color = ColorRGBA(r, g, b, a);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_texture_blend_color(&mut self, r: u8, g: u8, b: u8, a: u8) {
+        self.draw.texture_blend_color = ColorRGBA(r, g, b, a);
     }
 
     #[allow(dead_code)]
@@ -329,7 +336,7 @@ impl Renderer {
     pub fn draw_point(&mut self, x: i32, y: i32) {
         self.draw.vertices.push(Vertex::with_color(
             Position(x as f32, y as f32, 0.0),
-            self.draw.active_color,
+            self.draw.draw_color,
         ));
         self.draw.sections.push(VertexSection {
             length: 1,
@@ -342,7 +349,7 @@ impl Renderer {
     #[allow(dead_code)]
     pub fn draw_line(&mut self, x0: i32, y0: i32, x1: i32, y1: i32) {
         let (x0, y0, x1, y1) = (x0 as f32, y0 as f32, x1 as f32, y1 as f32);
-        let color = self.draw.active_color;
+        let color = self.draw.draw_color;
 
         // offset slightly to get around weird missing pixels
         let start = Position(x0 - 0.5, y0 - 0.5, 0.0);
@@ -360,8 +367,8 @@ impl Renderer {
     }
 
     #[allow(dead_code)]
-    pub fn draw_rect(&mut self, x: i32, y: i32, w: i32, h: i32) {
-        let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
+    pub fn draw_rect(&mut self, rect: Rect) {
+        let (x, y, w, h) = (rect.x, rect.y, rect.w as i32, rect.h as i32);
         let lines = [
             (x, y, x + w, y),         // top line
             (x, y, x, y + h),         // left line
@@ -369,27 +376,14 @@ impl Renderer {
             (x, y + h, x + w, y + h), // bottom line
         ];
         for (x0, y0, x1, y1) in lines {
-            self.draw.vertices.push(Vertex::with_color(
-                Position(x0 as f32, y0 as f32, 0.0),
-                self.draw.active_color,
-            ));
-            self.draw.vertices.push(Vertex::with_color(
-                Position(x1 as f32, y1 as f32, 0.0),
-                self.draw.active_color,
-            ));
+            self.draw_line(x0, y0, x1, y1);
         }
-        self.draw.sections.push(VertexSection {
-            length: 8,
-            primitive: PrimitiveType::Line,
-            texture_id: self.shader.white_texture_id,
-            color_key: self.draw.active_color_key,
-        })
     }
 
     #[allow(dead_code)]
-    pub fn draw_rect_fill(&mut self, x: i32, y: i32, w: i32, h: i32) {
-        let (x, y, w, h) = (x as f32, y as f32, w as f32, h as f32);
-        let color = self.draw.active_color;
+    pub fn draw_rect_fill(&mut self, rect: Rect) {
+        let (x, y, w, h) = (rect.x as f32, rect.y as f32, rect.w as f32, rect.h as f32);
+        let color = self.draw.draw_color;
         let vertices = &mut self.draw.vertices;
 
         let top_left = Position(x, y, 0.0);
@@ -420,7 +414,7 @@ impl Renderer {
         let circle_vertices = midpoint::circle_points(radius).into_iter().map(|(x, y)| {
             Vertex::with_color(
                 Position((center_x + x) as f32, (center_y + y) as f32, 0.0),
-                self.draw.active_color,
+                self.draw.draw_color,
             )
         });
 
@@ -446,12 +440,12 @@ impl Renderer {
                 // start the line on upper half circle
                 Vertex::with_color(
                     Position((center_x + x) as f32, (center_y + y) as f32, 0.0),
-                    self.draw.active_color,
+                    self.draw.draw_color,
                 ),
                 // end the line on lower half circle
                 Vertex::with_color(
                     Position((center_x + x) as f32, (center_y - y) as f32, 0.0),
-                    self.draw.active_color,
+                    self.draw.draw_color,
                 ),
             ]
         });
@@ -517,15 +511,17 @@ impl Renderer {
             bottom_right_uv = TextureUV(1.0, 0.0);
         }
 
+        let blend_color = self.draw.texture_blend_color;
+
         // first triangle
-        vertices.push(Vertex::with_uv(top_left_xy, top_left_uv));
-        vertices.push(Vertex::with_uv(top_right_xy, top_right_uv));
-        vertices.push(Vertex::with_uv(bottom_left_xy, bottom_left_uv));
+        vertices.push(Vertex::new(top_left_xy, blend_color, top_left_uv));
+        vertices.push(Vertex::new(top_right_xy, blend_color, top_right_uv));
+        vertices.push(Vertex::new(bottom_left_xy, blend_color, bottom_left_uv));
 
         // second triangle
-        vertices.push(Vertex::with_uv(top_right_xy, top_right_uv));
-        vertices.push(Vertex::with_uv(bottom_left_xy, bottom_left_uv));
-        vertices.push(Vertex::with_uv(bottom_right_xy, bottom_right_uv));
+        vertices.push(Vertex::new(top_right_xy, blend_color, top_right_uv));
+        vertices.push(Vertex::new(bottom_left_xy, blend_color, bottom_left_uv));
+        vertices.push(Vertex::new(bottom_right_xy, blend_color, bottom_right_uv));
 
         self.draw.sections.push(VertexSection {
             length: 6,
@@ -564,6 +560,27 @@ impl Drop for Renderer {
 }
 
 impl Vertex {
+    fn new(
+        Position(x, y, z): Position,
+        ColorRGBA(r, g, b, a): ColorRGBA,
+        TextureUV(u, v): TextureUV,
+    ) -> Self {
+        Vertex {
+            pos: VertexPosition {
+                x: x as f32,
+                y: y as f32,
+                z: z as f32,
+            },
+            color: VertexColor {
+                r: r as f32 / 255.0,
+                g: g as f32 / 255.0,
+                b: b as f32 / 255.0,
+                a: a as f32 / 255.0,
+            },
+            texture_uv: VertexTextureUV { u, v },
+        }
+    }
+
     fn with_color(Position(x, y, z): Position, ColorRGBA(r, g, b, a): ColorRGBA) -> Self {
         Vertex {
             pos: VertexPosition {
@@ -581,6 +598,7 @@ impl Vertex {
         }
     }
 
+    #[allow(dead_code)]
     fn with_uv(Position(x, y, z): Position, TextureUV(u, v): TextureUV) -> Self {
         Vertex {
             pos: VertexPosition {

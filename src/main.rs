@@ -1,3 +1,4 @@
+extern crate freetype;
 extern crate gl;
 extern crate imgui;
 extern crate imgui_opengl_renderer;
@@ -13,6 +14,7 @@ mod hot_reload;
 mod input;
 
 use crate::graphics::animation::AnimationID;
+use crate::graphics::fonts::FontSystem;
 use crate::graphics::rendering;
 use crate::hot_reload::AsepriteReloader;
 use crate::input::config::ProgramConfig;
@@ -119,7 +121,7 @@ fn draw_button(renderer: &mut Renderer, rect: Rect, pressed: bool) {
 
     // button body
     renderer.set_draw_color(grey.0, grey.1, grey.2, 255);
-    renderer.draw_rect_fill(rect.x, rect.y, rect_w, rect_h);
+    renderer.draw_rect_fill(rect);
 
     // top outline
     renderer.set_draw_color(top_outline.0, top_outline.1, top_outline.2, 255);
@@ -205,8 +207,16 @@ fn main() {
     renderer.on_window_resize(window_width, window_height); // FIXME make width height args to new()
     let mut sprite_system = SpriteSystem::new();
     let mut animation_system = AnimationSystem::new();
+    let mut font_system = FontSystem::new();
+    font_system.set_text_color(0, 0, 0, 255);
 
     /* Main loop */
+    let arial_16 = font_system.add_font(
+        &mut renderer,
+        &PathBuf::from("./resources/font/arial.ttf"),
+        16,
+    );
+
     let smiley_image_path = PathBuf::from(r"resources/smiley.png");
     let smiley_json_path = &PathBuf::from(r"resources/smiley.json");
     let smiley_texture_id =
@@ -235,9 +245,11 @@ fn main() {
             animation_system.start_animation(smiley_animations[&direction]);
         }
     };
+
     let mut smiley_scaling = 5.0;
     let mut smiley_direction = Direction::Down;
     let mut smiley_input_stack = InputStack::<Direction>::new();
+    let mut smiley_animatin_is_playing = false;
 
     let mut button_pressed = false;
     let mut event_pump = sdl.event_pump().unwrap();
@@ -326,7 +338,13 @@ fn main() {
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
-            animation_system.reset_animation(smiley_animations[&smiley_direction]);
+            smiley_animatin_is_playing = !smiley_animatin_is_playing;
+            let animation = smiley_animations[&smiley_direction];
+            if smiley_animatin_is_playing {
+                animation_system.stop_animation(animation);
+            } else {
+                animation_system.start_animation(animation);
+            }
         }
 
         // draw dev ui
@@ -344,10 +362,7 @@ fn main() {
                     input.mouse.left_button.is_pressed()
                 ));
                 dev_ui.text(format!("direction = {:?}", smiley_direction));
-                dev_ui.slider("Smiley scaling", 0.1, 10.0, &mut smiley_scaling);
-                if dev_ui.button("reset scaling") {
-                    smiley_scaling = 1.0;
-                }
+                dev_ui.slider("Smiley scaling", 1.0, 10.0, &mut smiley_scaling);
 
                 window.end();
             };
@@ -359,10 +374,27 @@ fn main() {
         // draw background
         renderer.clear();
         renderer.set_draw_color(0, 129, 129, 255);
-        renderer.draw_rect_fill(0, 0, window_width as i32, window_height as i32);
+        renderer.draw_rect_fill(Rect {
+            x: 0,
+            y: 0,
+            w: window_width,
+            h: window_height,
+        });
 
         // draw button
         draw_button(&mut renderer, button_rect, button_pressed);
+
+        // draw button text
+        let offset = if button_pressed { 1 } else { 0 };
+        let text = if smiley_animatin_is_playing {
+            "Play"
+        } else {
+            "Pause"
+        };
+        let (text_width, text_height) = font_system.text_dimensions(arial_16, text);
+        let text_x = button_rect.x + (button_width as i32 - text_width as i32) / 2 + offset;
+        let text_y = button_rect.y + (button_height as i32 - text_height as i32) / 2 + offset;
+        font_system.draw_text(&mut renderer, arial_16, text_x, text_y, text);
 
         // draw smiley
         let smiley_w = 16.0 * smiley_scaling;

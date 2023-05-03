@@ -112,6 +112,7 @@ impl SpriteSystem {
             renderer.set_color_key(r, g, b);
         }
 
+        renderer.set_texture_blend_color(255, 255, 255, 255);
         renderer.draw_texture(
             sprite_sheet.texture_id,
             Rect {

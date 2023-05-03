@@ -9,6 +9,7 @@
     - [x] Aseprite JSON sprite sheet integration
     - [x] animation
   - [ ] draw fonts
+    - [ ] load fonts in background thread
   - [ ] render at different resolutions (reference: https://stackoverflow.com/questions/7071090/low-resolution-in-opengl-to-mimic-older-games)
   - [ ] tilemaps (for levels)
 
