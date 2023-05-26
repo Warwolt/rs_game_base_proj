@@ -81,6 +81,8 @@ fn init_window(
         .allow_highdpi()
         .opengl()
         .position_centered()
+        // TODO: uncomment this once we have framebuffer render-to-texture and
+        // can handle different window resolutions.
         .resizable()
         .hidden()
         .build()
