@@ -229,8 +229,10 @@ fn main() {
         gl::EnableVertexAttribArray(2);
         assert_no_gl_error!();
 
+        dbg!(std::env::args().next());
+
         // Texture data
-        let texture_image = image::open("resources/container.jpg").unwrap();
+        let texture_image = image::open("examples/resources/container.jpg").unwrap();
         let (texture_width, texture_height) = texture_image.dimensions();
         let texture_data = texture_image
             .pixels()
