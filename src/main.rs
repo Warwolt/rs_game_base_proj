@@ -8,11 +8,13 @@ extern crate sdl2;
 #[macro_use]
 extern crate parameterized;
 
+mod audio;
 mod geometry;
 mod graphics;
 mod hot_reload;
 mod input;
 
+use crate::audio::AudioPlayer;
 use crate::geometry::Dimension;
 use crate::graphics::animation::AnimationID;
 use crate::graphics::fonts::FontSystem;
@@ -69,6 +71,11 @@ fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {
     }
 
     sdl_video
+}
+
+fn init_audio(sdl: &sdl2::Sdl) -> sdl2::AudioSubsystem {
+    let sdl_audio = sdl.audio().unwrap();
+    sdl_audio
 }
 
 fn init_window(
@@ -191,6 +198,18 @@ fn main() {
     /* Initialize SDL */
     let sdl = sdl2::init().unwrap();
     let sdl_video = init_video(&sdl);
+
+    // init audio
+    let _sdl_audio = init_audio(&sdl);
+    {
+        let frequency = 44_100;
+        let format = sdl2::mixer::AUDIO_S16LSB; // signed 16 bit samples, in little-endian byte order
+        let channels = sdl2::mixer::DEFAULT_CHANNELS; // Stereo
+        let chunk_size = 1_024;
+        sdl2::mixer::open_audio(frequency, format, channels, chunk_size).unwrap();
+    }
+    let _sdl_mixer = sdl2::mixer::init(sdl2::mixer::InitFlag::MP3).unwrap();
+
     let window = init_window(
         &sdl_video,
         "Base Project",
@@ -214,6 +233,11 @@ fn main() {
 
     /* Setup input */
     let mut input = InputDevices::new();
+
+    /* Setup audio */
+    let mut audio = AudioPlayer::new();
+    let click_sound = audio.add_sound(&PathBuf::from("./resources/audio/click.wav"));
+    let music = audio.add_music(&PathBuf::from("./resources/audio/music.wav"));
 
     /* Setup rendering */
     let mut renderer = Renderer::new(
@@ -296,6 +320,9 @@ fn main() {
         }
     }
 
+    // start music
+    audio.play_music(music);
+
     'main_loop: loop {
         /* Input */
         let time_now = SystemTime::now();
@@ -367,6 +394,14 @@ fn main() {
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
+            audio.play_sound(click_sound);
+
+            if audio.music_is_paused() {
+                audio.resume_music();
+            } else {
+                audio.pause_music();
+            }
+
             smiley_animatin_is_playing = !smiley_animatin_is_playing;
             let animation = smiley_animations[&smiley_direction];
             if smiley_animatin_is_playing {

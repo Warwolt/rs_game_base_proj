@@ -75,7 +75,7 @@ impl FontSystem {
             );
         }
 
-        let id = self.make_id();
+        let id = self.generate_id();
         self.fonts.insert(id, glyphs);
 
         id
@@ -156,7 +156,7 @@ impl FontSystem {
         (width, height)
     }
 
-    fn make_id(&mut self) -> FontID {
+    fn generate_id(&mut self) -> FontID {
         let id = self.next_id;
         self.next_id += 1;
         FontID(id)

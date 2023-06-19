@@ -20,16 +20,19 @@
   - [ ] gamepad
 
 - [ ] audio
-  - [ ] play sounds
-  - [ ] play music
+  - [x] play sounds
+  - [x] play music
+  - [ ] hot reload audio files
 
 - [ ] physics
-  - [ ] point line intersection
-  - [ ] line line intersection
-  - [ ] line circle intersection
-  - [ ] line polygon intersection
-  - [ ] circle circle intersection
-  - [ ] polygon polygon intersection
+  - [ ] geometry
+    - [ ] point line intersection
+    - [ ] line line intersection
+    - [ ] line circle intersection
+    - [ ] line polygon intersection
+    - [ ] circle circle intersection
+    - [ ] polygon polygon intersection
+  - [ ] collision system
 
 - [ ] dev tools
   - [ ] add profiler (https://crates.io/crates/microprofile)
