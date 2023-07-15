@@ -229,8 +229,6 @@ fn main() {
         gl::EnableVertexAttribArray(2);
         assert_no_gl_error!();
 
-        dbg!(std::env::args().next());
-
         // Texture data
         let texture_image = image::open("examples/resources/container.jpg").unwrap();
         let (texture_width, texture_height) = texture_image.dimensions();
@@ -240,7 +238,6 @@ fn main() {
             .collect::<Vec<[u8; 4]>>();
         gl::GenTextures(1, &mut texture_id);
         gl::BindTexture(gl::TEXTURE_2D, texture_id);
-        #[rustfmt::skip]
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
