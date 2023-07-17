@@ -39,3 +39,8 @@
     - [ ] sounds
   - [ ] deserialize ini file into a struct
   - [ ] measure frame count
+
+- [ ] documentation
+  - [ ] setup rust docs for project
+  - [ ] document the reload system
+  - [ ] document rendering
