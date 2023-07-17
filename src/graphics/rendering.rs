@@ -1,4 +1,7 @@
-use crate::{geometry::Rect, graphics::midpoint};
+use crate::{
+    geometry::{Dimension, Rect},
+    graphics::midpoint,
+};
 use gl::types::*;
 use glam::Mat4;
 use image::GenericImageView;
@@ -12,7 +15,11 @@ use std::{
 
 #[derive(Debug)]
 pub struct Renderer {
+    // Used for rendering user draw calls
     shader: ShaderData,
+    /// Used for fixed resolution rendering
+    canvas: Canvas,
+    /// Store data from user draw calls
     draw: DrawData,
 }
 
@@ -25,14 +32,31 @@ pub enum LoadError {
 }
 
 #[derive(Debug)]
+struct ShaderProgram(GLuint);
+
+#[derive(Debug)]
+struct Shader(GLuint);
+
+#[derive(Debug)]
 struct ShaderData {
-    program: u32,
-    vertex_shader: u32,
-    fragment_shader: u32,
+    program: ShaderProgram,
+    _vertex_shader: Shader,
+    _fragment_shader: Shader,
     vbo: u32,
     vao: u32,
     white_texture_id: u32,
     textures: HashMap<TextureID, TextureData>,
+}
+
+#[derive(Debug, Default)]
+pub struct Canvas {
+    pub pos: glam::IVec2,
+    pub dim: Dimension,
+    pub scaled_dim: Dimension,
+    pub scale: f32,
+    fbo: u32,
+    vao: u32,
+    texture: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -64,6 +88,8 @@ struct DrawData {
     active_color_key: ColorRGBA,
     vertices: Vec<Vertex>,
     sections: Vec<VertexSection>,
+    window_width: f32,
+    window_height: f32,
 }
 
 /// xyz
@@ -196,9 +222,12 @@ fn gl_error_to_string(err: gl::types::GLenum) -> &'static str {
 }
 
 impl Renderer {
-    // FIXME: should this have window dimensions as parameters? Right now client
-    // has to call on_window_resize after constructing, which seems a little fucked.
-    pub fn new() -> Self {
+    pub fn new(
+        window_width: u32,
+        window_height: u32,
+        canvas_width: u32,
+        canvas_height: u32,
+    ) -> Self {
         // Enable OpenGL debug logging
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
@@ -208,7 +237,7 @@ impl Renderer {
         // Setup shader program
         let vertex_shader = compile_shader(VERTEX_SHADER_SRC, gl::VERTEX_SHADER);
         let fragment_shader = compile_shader(FRAGMENT_SHADER_SRC, gl::FRAGMENT_SHADER);
-        let program = link_program(vertex_shader, fragment_shader);
+        let program = link_program(&vertex_shader, &fragment_shader);
 
         // Setup drawing buffer
         let primitives_vbo = new_vbo();
@@ -217,7 +246,27 @@ impl Renderer {
 
         // Setup default texture when drawing primitves
         let white_texture = new_texture();
-        upload_data_to_texture(white_texture, &[255, 255, 255, 255], 1, 1);
+        set_texture_image(white_texture, 1, 1, Some(&[255, 255, 255, 255]));
+
+        // Setup drawing canvas (for fixed resolution rendering)
+        let canvas_vao = new_vao();
+        let canvas_vbo = new_vbo();
+        let canvas_fbo = new_fbo();
+        let canvas_texture = new_texture();
+        set_texture_image(canvas_texture, canvas_width, canvas_height, None);
+        set_framebuffer_texture(canvas_fbo, canvas_texture);
+        set_vertex_data(
+            canvas_vbo,
+            &[
+                Vertex::with_uv(Position(-1.0, -1.0, 0.0), TextureUV(0.0, 0.)), // bottom left
+                Vertex::with_uv(Position(-1.0, 1.0, 0.0), TextureUV(0.0, 1.0)), // top left
+                Vertex::with_uv(Position(1.0, 1.0, 0.0), TextureUV(1.0, 1.0)),  // top right
+                Vertex::with_uv(Position(-1.0, -1.0, 0.0), TextureUV(0.0, 0.0)), // bottom left
+                Vertex::with_uv(Position(1.0, 1.0, 0.0), TextureUV(1.0, 1.0)),  // top right
+                Vertex::with_uv(Position(1.0, -1.0, 0.0), TextureUV(1.0, 0.0)), // bottom right
+            ],
+        );
+        Vertex::set_attribute_pointers(canvas_vao, canvas_vbo);
 
         // Enable alpha blending
         unsafe {
@@ -228,42 +277,64 @@ impl Renderer {
         Renderer {
             shader: ShaderData {
                 program,
-                vertex_shader,
-                fragment_shader,
+                _vertex_shader: vertex_shader,
+                _fragment_shader: fragment_shader,
                 vbo: primitives_vbo,
                 vao: primitives_vao,
                 white_texture_id: white_texture,
                 textures: HashMap::new(),
             },
+            canvas: Canvas::new(
+                canvas_fbo,
+                canvas_vao,
+                canvas_texture,
+                window_width as f32,
+                window_height as f32,
+                canvas_width,
+                canvas_height,
+            ),
             draw: DrawData {
                 draw_color: ColorRGBA(0, 0, 0, 255),
                 texture_blend_color: ColorRGBA(255, 255, 255, 255),
                 active_color_key: ColorRGBA(0, 0, 0, 0),
                 vertices: Vec::new(),
                 sections: Vec::new(),
+                window_width: window_width as f32,
+                window_height: window_height as f32,
             },
         }
     }
 
-    pub fn render(&self) {
+    pub fn render(&mut self) {
+        /* Update canvas */
+        self.canvas
+            .update(self.draw.window_width, self.draw.window_height);
+
+        /* Draw to canvas */
         unsafe {
-            // upload data to VBO
-            gl::BindVertexArray(self.shader.vao);
-            gl::BindBuffer(gl::ARRAY_BUFFER, self.shader.vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                size_of_buf(&self.draw.vertices) as _,
-                self.draw.vertices.as_ptr() as *const c_void,
-                gl::STATIC_DRAW,
+            gl::UseProgram(self.shader.program.0);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, self.canvas.fbo);
+            self.set_projection_matrix(
+                0.0,
+                self.canvas.dim.width as f32,
+                self.canvas.dim.height as f32,
+                0.0,
+            );
+            gl::Viewport(
+                0,
+                0,
+                self.canvas.dim.width as i32,
+                self.canvas.dim.height as i32,
             );
 
             // clear
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            gl::UseProgram(self.shader.program);
+            // draw vertices
+            set_vertex_data(self.shader.vbo, &self.draw.vertices);
             gl::BindVertexArray(self.shader.vao);
-            let mut buffer_offset = 0;
+            let mut buffer_index = 0;
             for section in &self.draw.sections {
                 let mode = match section.primitive {
                     PrimitiveType::Triangle => gl::TRIANGLES,
@@ -274,20 +345,39 @@ impl Renderer {
                 self.set_color_key_uniform(section.color_key);
                 gl::ActiveTexture(gl::TEXTURE0);
                 gl::BindTexture(gl::TEXTURE_2D, section.texture_id);
-                gl::DrawArrays(mode, buffer_offset, section.length as i32);
-                buffer_offset += section.length as i32;
+                gl::DrawArrays(mode, buffer_index, section.length as i32);
+                buffer_index += section.length as i32;
             }
+        }
+
+        /* Render canvas to screen */
+        unsafe {
+            gl::UseProgram(self.shader.program.0);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            self.set_projection_matrix(-1.0, 1.0, -1.0, 1.0);
+            gl::Viewport(
+                self.canvas.pos.x,
+                self.canvas.pos.y,
+                self.canvas.scaled_dim.width as i32,
+                self.canvas.scaled_dim.height as i32,
+            );
+
+            // clear
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+
+            gl::BindVertexArray(self.canvas.vao);
+            gl::BindTexture(gl::TEXTURE_2D, self.canvas.texture);
+            gl::DrawArrays(gl::TRIANGLES, 0, 6);
         }
     }
 
-    pub fn on_window_resize(&self, width: u32, height: u32) {
-        let projection = Mat4::orthographic_lh(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
-        unsafe {
-            gl::UseProgram(self.shader.program);
-            let projection_name = CString::new("projection").unwrap();
-            let location = gl::GetUniformLocation(self.shader.program, projection_name.as_ptr());
-            gl::UniformMatrix4fv(location, 1, gl::FALSE, &projection.to_cols_array()[0]);
-        }
+    pub fn canvas(&self) -> &Canvas {
+        &self.canvas
+    }
+    pub fn on_window_resize(&mut self, width: u32, height: u32) {
+        self.draw.window_width = width as f32;
+        self.draw.window_height = height as f32;
     }
 
     pub fn add_texture(&mut self, rgba_data: &[u8], width: u32, height: u32) -> TextureID {
@@ -295,7 +385,7 @@ impl Renderer {
         self.shader
             .textures
             .insert(id, TextureData { width, height });
-        upload_data_to_texture(id.0, rgba_data, width, height);
+        set_texture_image(id.0, width, height, Some(rgba_data));
         id
     }
 
@@ -303,7 +393,7 @@ impl Renderer {
         self.shader
             .textures
             .insert(id, TextureData { width, height });
-        upload_data_to_texture(id.0, rgba_data, width, height);
+        set_texture_image(id.0, width, height, Some(rgba_data));
     }
 
     pub fn clear(&mut self) {
@@ -531,9 +621,20 @@ impl Renderer {
         })
     }
 
+    pub fn set_resolution(&mut self, resolution_width: u32, resolution_height: u32) {
+        set_texture_image(
+            self.canvas.texture,
+            resolution_width,
+            resolution_height,
+            None,
+        );
+        self.canvas.dim.width = resolution_width;
+        self.canvas.dim.height = resolution_height;
+    }
+
     fn set_color_key_uniform(&self, color_key: ColorRGBA) {
         set_uniform_vec4f(
-            self.shader.program,
+            self.shader.program.0,
             "color_key",
             color_key.0 as f32 / 255.0,
             color_key.1 as f32 / 255.0,
@@ -541,14 +642,93 @@ impl Renderer {
             color_key.3 as f32 / 255.0,
         );
     }
+
+    fn set_projection_matrix(&self, left: f32, right: f32, bottom: f32, top: f32) {
+        let projection = Mat4::orthographic_lh(left, right, bottom, top, -1.0, 1.0);
+        unsafe {
+            gl::UseProgram(self.shader.program.0);
+            let projection_name = CString::new("projection").unwrap();
+            let location = gl::GetUniformLocation(self.shader.program.0, projection_name.as_ptr());
+            gl::UniformMatrix4fv(location, 1, gl::FALSE, &projection.to_cols_array()[0]);
+        }
+    }
+}
+
+impl Canvas {
+    fn new(
+        fbo: u32,
+        vao: u32,
+        texture: u32,
+        window_width: f32,
+        window_height: f32,
+        canvas_width: u32,
+        canvas_height: u32,
+    ) -> Self {
+        let mut canvas: Canvas = Default::default();
+
+        canvas.dim.width = canvas_width;
+        canvas.dim.height = canvas_height;
+        canvas.scale = Self::calculate_scale(window_width, window_height, canvas.dim);
+        canvas.scaled_dim = Self::calculate_scaled_dimensions(canvas.scale, canvas.dim);
+        canvas.pos = Self::calculate_position(window_width, window_height, canvas.scaled_dim);
+        canvas.fbo = fbo;
+        canvas.vao = vao;
+        canvas.texture = texture;
+
+        canvas
+    }
+
+    fn update(&mut self, window_width: f32, window_height: f32) {
+        self.scale = Self::calculate_scale(window_width, window_height, self.dim);
+        self.scaled_dim = Self::calculate_scaled_dimensions(self.scale, self.dim);
+        self.pos = Self::calculate_position(window_width, window_height, self.scaled_dim);
+    }
+
+    fn calculate_scale(window_width: f32, window_height: f32, dim: Dimension) -> f32 {
+        f32::round(f32::min(
+            window_width as f32 / dim.width as f32,
+            window_height as f32 / dim.height as f32,
+        ))
+    }
+
+    fn calculate_scaled_dimensions(scale: f32, dim: Dimension) -> Dimension {
+        Dimension {
+            width: (scale * dim.width as f32) as u32,
+            height: (scale * dim.height as f32) as u32,
+        }
+    }
+
+    fn calculate_position(
+        window_width: f32,
+        window_height: f32,
+        scaled_dim: Dimension,
+    ) -> glam::IVec2 {
+        glam::ivec2(
+            (window_width as i32 - scaled_dim.width as i32) / 2,
+            (window_height as i32 - scaled_dim.height as i32) / 2,
+        )
+    }
+}
+
+impl Drop for ShaderProgram {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteProgram(self.0);
+        }
+    }
+}
+
+impl Drop for Shader {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteShader(self.0);
+        }
+    }
 }
 
 impl Drop for Renderer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteProgram(self.shader.program);
-            gl::DeleteShader(self.shader.fragment_shader);
-            gl::DeleteShader(self.shader.vertex_shader);
             gl::DeleteBuffers(1, &self.shader.vao);
             gl::DeleteTextures(1, &self.shader.white_texture_id);
             for (id, _) in &self.shader.textures {
@@ -675,8 +855,9 @@ impl Vertex {
     }
 }
 
-fn compile_shader(src: &str, ty: GLenum) -> GLuint {
+fn compile_shader(src: &str, ty: GLenum) -> Shader {
     let shader;
+
     unsafe {
         shader = gl::CreateShader(ty);
         // Attempt to compile the shader
@@ -710,14 +891,15 @@ fn compile_shader(src: &str, ty: GLenum) -> GLuint {
 
         assert_no_gl_error!();
     }
-    shader
+
+    Shader(shader)
 }
 
-fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
+fn link_program(vs: &Shader, fs: &Shader) -> ShaderProgram {
     unsafe {
         let program = gl::CreateProgram();
-        gl::AttachShader(program, vs);
-        gl::AttachShader(program, fs);
+        gl::AttachShader(program, vs.0);
+        gl::AttachShader(program, fs.0);
         gl::LinkProgram(program);
         // Get the link status
         let mut status = gl::FALSE as GLint;
@@ -745,7 +927,7 @@ fn link_program(vs: GLuint, fs: GLuint) -> GLuint {
 
         assert_no_gl_error!();
 
-        program
+        ShaderProgram(program)
     }
 }
 
@@ -769,6 +951,15 @@ fn new_vao() -> u32 {
         assert_no_gl_error!();
     }
     vao
+}
+
+fn new_fbo() -> u32 {
+    let mut fbo = 0;
+    unsafe {
+        gl::GenFramebuffers(1, &mut fbo);
+        assert_no_gl_error!();
+    }
+    fbo
 }
 
 fn new_texture() -> u32 {
@@ -796,7 +987,21 @@ fn set_uniform_vec4f(program: u32, name: &str, v0: f32, v1: f32, v2: f32, v3: f3
     }
 }
 
-fn upload_data_to_texture(texture_id: u32, rgba_data: &[u8], width: u32, height: u32) {
+fn set_vertex_data(vbo: u32, vertices: &[Vertex]) {
+    unsafe {
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            size_of_buf(vertices) as _,
+            vertices.as_ptr() as *const c_void,
+            gl::STATIC_DRAW,
+        );
+        assert_no_gl_error!();
+        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+    }
+}
+
+fn set_texture_image(texture_id: u32, width: u32, height: u32, rgba_data: Option<&[u8]>) {
     unsafe {
         gl::BindTexture(gl::TEXTURE_2D, texture_id);
         gl::TexImage2D(
@@ -808,8 +1013,37 @@ fn upload_data_to_texture(texture_id: u32, rgba_data: &[u8], width: u32, height:
             0,
             gl::RGBA,
             gl::UNSIGNED_BYTE,
-            rgba_data.as_ptr() as *const c_void,
+            if let Some(rgba_data) = rgba_data {
+                rgba_data.as_ptr() as *const c_void
+            } else {
+                std::ptr::null()
+            },
         );
         assert_no_gl_error!();
+        gl::BindTexture(gl::TEXTURE_2D, 0);
+    }
+}
+
+fn set_framebuffer_texture(fbo: u32, texture: u32) {
+    unsafe {
+        gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            texture,
+            0,
+        );
+        assert_no_gl_error!();
+
+        let fbo_status = gl::CheckFramebufferStatus(gl::FRAMEBUFFER);
+        if fbo_status != gl::FRAMEBUFFER_COMPLETE {
+            panic!(
+                "CheckFramebufferStatus failed with fbo_status = {}",
+                fbo_status
+            );
+        }
+
+        gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
     }
 }

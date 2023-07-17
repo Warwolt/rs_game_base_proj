@@ -293,7 +293,7 @@ fn main() {
         // VBO
         #[rustfmt::skip]
         let canvas_rect: [GLfloat; (3 + 4 + 2) * 6] = [
-            // pos              // color                  // texture
+            // pos              // color               // texture
             // first triangle
             -1.0, -1.0, 0.0,    1.0, 1.0, 1.0, 1.0,    0.0, 0.0,  // bottom left
             -1.0, 1.0, 0.0,     1.0, 1.0, 1.0, 1.0,    0.0, 1.0,  // top left

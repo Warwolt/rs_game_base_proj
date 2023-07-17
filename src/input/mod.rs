@@ -67,7 +67,7 @@ impl InputDevices {
                 _ => (),
             },
             sdl2::event::Event::MouseMotion { x, y, .. } => {
-                self.mouse.pos = glam::ivec2(*x, *y);
+                self.mouse.set_window_pos(*x, *y);
             }
             sdl2::event::Event::KeyDown { keycode, .. } => {
                 if let Some(keycode) = keycode {
@@ -81,10 +81,5 @@ impl InputDevices {
             }
             _ => {}
         }
-    }
-
-    pub fn update(&mut self) {
-        self.mouse.update();
-        self.keyboard.update();
     }
 }

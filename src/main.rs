@@ -13,6 +13,7 @@ mod graphics;
 mod hot_reload;
 mod input;
 
+use crate::geometry::Dimension;
 use crate::graphics::animation::AnimationID;
 use crate::graphics::fonts::FontSystem;
 use crate::graphics::rendering;
@@ -29,6 +30,7 @@ use crate::{
 use geometry::Rect;
 use graphics::{rendering::Renderer, sprites::SpriteSystem};
 use input::InputDevices;
+use sdl2::event::{Event, WindowEvent};
 use sdl2::{
     keyboard::Keycode,
     video::{GLContext, GLProfile, Window},
@@ -161,8 +163,17 @@ fn point_is_inside_rect(point: glam::IVec2, rect: Rect) -> bool {
 }
 
 fn main() {
-    let window_width = 800;
-    let window_height = 600;
+    let init_window_width = 800;
+    let init_window_height = 600;
+
+    let window_resolutions = ["200x150", "400x300", "800x600"];
+    let mut current_window_resolution = window_resolutions[0];
+    let (init_resolution_width, init_resolution_height) = match current_window_resolution {
+        "200x150" => (200, 150),
+        "400x300" => (400, 300),
+        "800x600" => (800, 600),
+        _ => panic!("unsupported resolution"),
+    };
 
     /* Initialize logging */
     init_logging();
@@ -183,8 +194,8 @@ fn main() {
     let window = init_window(
         &sdl_video,
         "Base Project",
-        window_width,
-        window_height,
+        init_window_width,
+        init_window_height,
         config.monitor as i32,
     );
     log::info!("SDL initialized");
@@ -205,8 +216,12 @@ fn main() {
     let mut input = InputDevices::new();
 
     /* Setup rendering */
-    let mut renderer = Renderer::new();
-    renderer.on_window_resize(window_width, window_height); // FIXME make width height args to new()
+    let mut renderer = Renderer::new(
+        init_window_width,
+        init_window_height,
+        init_resolution_width,
+        init_resolution_height,
+    );
     let mut sprite_system = SpriteSystem::new();
     let mut animation_system = AnimationSystem::new();
     let mut font_system = FontSystem::new();
@@ -248,7 +263,7 @@ fn main() {
         }
     };
 
-    let mut smiley_scaling = 5.0;
+    let mut smiley_scaling = 2.0;
     let mut smiley_direction = Direction::Down;
     let mut smiley_input_stack = InputStack::<Direction>::new();
     let mut smiley_animatin_is_playing = false;
@@ -286,14 +301,26 @@ fn main() {
         let time_now = SystemTime::now();
         let delta_time_ms = time_now.duration_since(prev_time).unwrap().as_millis();
         prev_time = time_now;
+        let Dimension {
+            width: canvas_width,
+            height: canvas_height,
+        } = renderer.canvas().dim;
 
         for event in event_pump.poll_iter() {
             imgui_sdl.handle_event(&mut imgui, &event);
             input.register_event(&event);
+            match event {
+                Event::Window { win_event, .. } => {
+                    if let WindowEvent::Resized(width, height) = win_event {
+                        renderer.on_window_resize(width as u32, height as u32)
+                    }
+                }
+                _ => (),
+            }
         }
-        input.update();
+        input.mouse.update(renderer.canvas());
+        input.keyboard.update();
 
-        /* Update */
         let updated_resource_files = file_watcher.update(delta_time_ms);
         aseprite_reloader.update(
             &mut renderer,
@@ -329,8 +356,8 @@ fn main() {
         let button_width = 75;
         let button_height = 23;
         let button_rect = Rect {
-            x: (window_width - button_width) as i32 / 2,
-            y: (window_height - button_height) as i32 / 2,
+            x: (canvas_width - button_width) as i32 / 2,
+            y: (canvas_height - button_height) as i32 / 2,
             w: button_width,
             h: button_height,
         };
@@ -351,22 +378,44 @@ fn main() {
 
         // draw dev ui
         imgui_sdl.prepare_frame(imgui.io_mut(), &window, &event_pump.mouse_state());
-        let dev_ui = imgui.frame();
+        let ui = imgui.frame();
         if config.show_dev_ui {
-            if let Some(window) = dev_ui.window("Example Window").begin() {
-                dev_ui.text("Hello Win95 Button");
-                dev_ui.text(format!(
+            if let Some(debug_window) = ui.window("Debug Window").begin() {
+                ui.text("Hello Win95 Button");
+                ui.text(format!(
                     "Mouse pos: ({},{})",
                     input.mouse.pos.x, input.mouse.pos.y
                 ));
-                dev_ui.text(format!(
+                ui.text(format!(
                     "Mouse left button pressed: {}",
                     input.mouse.left_button.is_pressed()
                 ));
-                dev_ui.text(format!("direction = {:?}", smiley_direction));
-                dev_ui.slider("Smiley scaling", 1.0, 10.0, &mut smiley_scaling);
+                ui.text(format!("direction = {:?}", smiley_direction));
+                ui.slider("Smiley scaling", 1.0, 10.0, &mut smiley_scaling);
 
-                window.end();
+                if let Some(_) = ui.begin_combo("Window resolution", current_window_resolution) {
+                    for item in &window_resolutions {
+                        if ui
+                            .selectable_config(item)
+                            .selected(current_window_resolution == *item)
+                            .build()
+                        {
+                            current_window_resolution = item;
+                            match current_window_resolution {
+                                "200x150" => renderer.set_resolution(200, 150),
+                                "400x300" => renderer.set_resolution(400, 300),
+                                "800x600" => renderer.set_resolution(800, 600),
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+
+                ui.text(format!("window = {:?}", window.size()));
+                ui.text(format!("canvas = {:?}", renderer.canvas().scaled_dim));
+                ui.text(format!("scale = {:?}", renderer.canvas().scale));
+
+                debug_window.end();
             };
         }
 
@@ -379,8 +428,8 @@ fn main() {
         renderer.draw_rect_fill(Rect {
             x: 0,
             y: 0,
-            w: window_width,
-            h: window_height,
+            w: canvas_width,
+            h: canvas_height,
         });
 
         // draw button
@@ -401,8 +450,8 @@ fn main() {
         // draw smiley
         let smiley_w = 16.0 * smiley_scaling;
         let (smiley_x, smiley_y) = (
-            f32::round((window_width as f32 - smiley_w) / 2.0) as i32,
-            f32::round((window_height as f32 - smiley_w) / 2.0) as i32 - 100,
+            f32::round((canvas_width as f32 - smiley_w) / 2.0) as i32,
+            f32::round((canvas_height as f32 - smiley_w) / 2.0) as i32 - 2 * button_height as i32,
         );
         let smiley_frame = animation_system.current_frame(smiley_animations[&smiley_direction]);
         sprite_system.set_scaling(smiley_scaling);
@@ -416,7 +465,7 @@ fn main() {
         sprite_system.reset_scaling();
 
         renderer.render();
-        imgui_sdl.prepare_render(&dev_ui, &window);
+        imgui_sdl.prepare_render(&ui, &window);
         imgui_renderer.render(&mut imgui);
 
         window.gl_swap_window();
