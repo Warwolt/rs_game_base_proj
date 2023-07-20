@@ -19,9 +19,8 @@ use crate::geometry::Dimension;
 use crate::graphics::animation::AnimationID;
 use crate::graphics::fonts::FontSystem;
 use crate::graphics::rendering;
-use crate::hot_reload::AsepriteReloader;
+use crate::hot_reload::ResourceReloader;
 use crate::input::config::ProgramConfig;
-use crate::input::file::FileWatcher;
 use crate::{
     graphics::{
         animation::{self, AnimationSystem},
@@ -43,7 +42,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::str;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Direction {
@@ -235,9 +234,10 @@ fn main() {
     let mut input = InputDevices::new();
 
     /* Setup audio */
-    let mut audio = AudioPlayer::new();
-    let click_sound = audio.add_sound(&PathBuf::from("./resources/audio/click.wav"));
-    let music = audio.add_music(&PathBuf::from("./resources/audio/music.wav"));
+    let mut audio_player = AudioPlayer::new();
+    let click_sound_path = PathBuf::from("./resources/audio/click.wav");
+    let click_sound = audio_player.add_sound(&click_sound_path);
+    let music = audio_player.add_music(&PathBuf::from("./resources/audio/music.wav"));
 
     /* Setup rendering */
     let mut renderer = Renderer::new(
@@ -296,13 +296,13 @@ fn main() {
     let mut event_pump = sdl.event_pump().unwrap();
     let mut prev_time = SystemTime::now();
 
-    // set up hot reloading
-    let file_watcher_debounce = Duration::from_millis(1000);
-    let mut file_watcher = FileWatcher::new(&PathBuf::from("./resources"), file_watcher_debounce);
-    let mut aseprite_reloader = AsepriteReloader::new();
+    let mut resource_reloader = ResourceReloader::new(&PathBuf::from("./resources"));
+    // set up sprite reloading
     {
+        let sprite_reloader = &mut resource_reloader.sprite_reloader();
+
         // register sprites
-        aseprite_reloader.register_aseprite_sprite_sheet(
+        sprite_reloader.register_aseprite_sprite_sheet(
             &smiley_image_path,
             &smiley_json_path,
             smiley_texture_id,
@@ -312,16 +312,21 @@ fn main() {
         // register animations
         for (direction, frame_tag_name) in smiley_animation_mappings {
             let animation_id = smiley_animations[&direction];
-            aseprite_reloader.register_aseprite_animation(
+            sprite_reloader.register_aseprite_animation(
                 smiley_json_path,
                 animation_id,
                 frame_tag_name,
             );
         }
     }
+    // set up audio reloading
+    {
+        let audio_reloader = &mut resource_reloader.audio_reloader();
+        audio_reloader.register_sound(click_sound, &click_sound_path);
+    }
 
     // start music
-    audio.play_music(music);
+    audio_player.play_music(music);
 
     'main_loop: loop {
         /* Input */
@@ -348,12 +353,12 @@ fn main() {
         input.mouse.update(renderer.canvas());
         input.keyboard.update();
 
-        let updated_resource_files = file_watcher.update(delta_time_ms);
-        aseprite_reloader.update(
+        resource_reloader.update(
+            delta_time_ms,
             &mut renderer,
             &mut sprite_system,
             &mut animation_system,
-            &updated_resource_files,
+            &mut audio_player,
         );
 
         if input.keyboard.is_pressed_now(Keycode::Escape) || input.quit {
@@ -394,12 +399,12 @@ fn main() {
 
         // on click
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
-            audio.play_sound(click_sound);
+            audio_player.play_sound(click_sound);
 
-            if audio.music_is_paused() {
-                audio.resume_music();
+            if audio_player.music_is_paused() {
+                audio_player.resume_music();
             } else {
-                audio.pause_music();
+                audio_player.pause_music();
             }
 
             smiley_animatin_is_playing = !smiley_animatin_is_playing;

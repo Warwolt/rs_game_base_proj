@@ -25,11 +25,22 @@ impl<'a> AudioPlayer<'a> {
         }
     }
 
+    /// Add a new sound to the system so that it can be played
     pub fn add_sound(&mut self, path: &Path) -> SoundID {
         let id = self.generate_sound_id();
         let chunk = sdl2::mixer::Chunk::from_file(path).unwrap();
         self.sounds.insert(id, chunk);
         id
+    }
+
+    /// Load a new sound to an existing ID, used for hot reloading.
+    pub fn reload_sound(&mut self, id: SoundID, path: &Path) {
+        log::info!("Reloading sound from \"{}\"", path.display());
+        if let Some(sound) = self.sounds.get_mut(&id) {
+            *sound = sdl2::mixer::Chunk::from_file(path).unwrap();
+        } else {
+            panic!("Trying to reload sound with non-registered id {}", id.0);
+        }
     }
 
     pub fn add_music(&mut self, path: &Path) -> MusicID {

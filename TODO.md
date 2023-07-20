@@ -13,13 +13,13 @@
   - [x] render at different resolutions (reference: https://stackoverflow.com/questions/7071090/low-resolution-in-opengl-to-mimic-older-games)
   - [ ] tilemaps (for levels)
 
-- [ ] input
+- [x] input
   - [x] update loop with delta time
   - [x] keyboard
   - [x] mouse
   - [ ] gamepad
 
-- [ ] audio
+- [x] audio
   - [x] play sounds
   - [x] play music
   - [ ] hot reload audio files

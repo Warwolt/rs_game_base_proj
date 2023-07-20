@@ -1,8 +1,3 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
-
 use crate::graphics::{
     animation::{reload_aseperite_sprite_sheet_animation, AnimationID, AnimationSystem},
     rendering::{self, Renderer, TextureID},
@@ -11,6 +6,11 @@ use crate::graphics::{
     },
 };
 use crate::input::file::is_same_file;
+use ::aseprite::SpritesheetData;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug)]
 pub struct AsepriteReloader {
@@ -58,7 +58,7 @@ impl AsepriteReloader {
         );
         if previous.is_some() {
             panic!(
-                "Trying to register already existing sprite sheey \"{}\"",
+                "Trying to register already existing sprite sheet \"{}\"",
                 json_path.display()
             );
         }
@@ -85,10 +85,10 @@ impl AsepriteReloader {
 
     pub fn update(
         &mut self,
+        updated_files: &[PathBuf],
         renderer: &mut Renderer,
         sprite_system: &mut SpriteSystem,
         animation_system: &mut AnimationSystem,
-        updated_files: &[PathBuf],
     ) {
         for updated_file_path in updated_files {
             for (json_path, watched_sprite_sheet) in &mut self.watched_sprite_sheets {
@@ -130,7 +130,7 @@ impl AsepriteReloader {
         &self,
         renderer: &mut Renderer,
         sprite_system: &mut SpriteSystem,
-        sprite_sheet_data: &aseprite::SpritesheetData,
+        sprite_sheet_data: &SpritesheetData,
         watched_sprite_sheet: &AsepriteWatchData,
     ) -> Option<()> {
         // Reload sprite sheet texture
