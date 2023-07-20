@@ -47,3 +47,5 @@
   - [ ] setup rust docs for project
   - [ ] document the reload system
   - [ ] document rendering
+
+- [] migrate resources to Git LFS
