@@ -1,6 +1,6 @@
 # TODO list
 
-- [ ] rendering
+- [x] rendering
   - [x] draw lines
   - [x] draw rectangles
   - [x] draw circles
@@ -22,7 +22,7 @@
 - [x] audio
   - [x] play sounds
   - [x] play music
-  - [ ] hot reload audio files
+  - [x] hot reload audio files
 
 - [ ] physics
   - [ ] geometry
@@ -36,10 +36,10 @@
 
 - [ ] dev tools
   - [ ] add profiler (https://crates.io/crates/microprofile)
-  - [ ] soure code hot reloading (https://robert.kra.hn/posts/hot-reloading-rust/)
-  - [ ] resource hot reloading
+  - [ ] source code hot reloading (https://robert.kra.hn/posts/hot-reloading-rust/)
+  - [x] resource hot reloading
     - [x] sprites
-    - [ ] sounds
+    - [x] sounds
   - [ ] deserialize ini file into a struct
   - [ ] measure frame count
 
