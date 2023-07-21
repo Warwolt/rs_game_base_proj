@@ -115,7 +115,9 @@ impl AsepriteReloader {
                             &sprite_sheet_data,
                             &animation.frame_tag_name,
                         );
-                        animation_system.restart_animation(animation.animation_id);
+                        if animation_system.is_playing(animation.animation_id) {
+                            animation_system.restart_animation(animation.animation_id);
+                        }
                     }
                 }
             }

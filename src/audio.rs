@@ -26,6 +26,7 @@ impl<'a> AudioPlayer<'a> {
     }
 
     /// Add a new sound to the system so that it can be played
+    #[allow(dead_code)]
     pub fn add_sound(&mut self, path: &Path) -> SoundID {
         let id = self.generate_sound_id();
         let chunk = sdl2::mixer::Chunk::from_file(path).unwrap();
@@ -34,6 +35,7 @@ impl<'a> AudioPlayer<'a> {
     }
 
     /// Load a new sound to an existing ID, used for hot reloading.
+    #[allow(dead_code)]
     pub fn reload_sound(&mut self, id: SoundID, path: &Path) {
         log::info!("Reloading sound from \"{}\"", path.display());
         if let Some(sound) = self.sounds.get_mut(&id) {
@@ -43,6 +45,7 @@ impl<'a> AudioPlayer<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_music(&mut self, path: &Path) -> MusicID {
         let id = self.generate_music_id();
         let music = sdl2::mixer::Music::from_file(path).unwrap();
@@ -50,26 +53,36 @@ impl<'a> AudioPlayer<'a> {
         id
     }
 
+    #[allow(dead_code)]
     pub fn play_sound(&self, sound: SoundID) {
         let chunk = &self.sounds[&sound];
         sdl2::mixer::Channel::all().play(chunk, 0).unwrap();
     }
 
+    #[allow(dead_code)]
     pub fn play_music(&self, music: MusicID) {
         let music = &self.tracks[&music];
         music.play(-1).unwrap();
     }
 
+    #[allow(dead_code)]
     pub fn pause_music(&self) {
         sdl2::mixer::Music::pause();
     }
 
+    #[allow(dead_code)]
     pub fn resume_music(&self) {
         sdl2::mixer::Music::resume();
     }
 
+    #[allow(dead_code)]
     pub fn music_is_paused(&self) -> bool {
         sdl2::mixer::Music::is_paused()
+    }
+
+    #[allow(dead_code)]
+    pub fn music_is_playing(&self) -> bool {
+        sdl2::mixer::Music::is_playing()
     }
 
     fn generate_sound_id(&mut self) -> SoundID {

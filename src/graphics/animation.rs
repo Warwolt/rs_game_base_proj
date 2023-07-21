@@ -101,6 +101,11 @@ impl AnimationSystem {
     }
 
     #[allow(dead_code)]
+    pub fn is_playing(&self, animation_id: AnimationID) -> bool {
+        self.animations.get(&animation_id).unwrap().is_playing
+    }
+
+    #[allow(dead_code)]
     pub fn restart_animation(&mut self, animation_id: AnimationID) {
         self.reset_animation(animation_id);
         self.start_animation(animation_id);

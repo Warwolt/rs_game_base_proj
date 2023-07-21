@@ -12,6 +12,7 @@
     - [ ] load fonts in background thread
   - [x] render at different resolutions (reference: https://stackoverflow.com/questions/7071090/low-resolution-in-opengl-to-mimic-older-games)
   - [ ] tilemaps (for levels)
+  - [x] toggle fullscreen with F11
 
 - [x] input
   - [x] update loop with delta time

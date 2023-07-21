@@ -18,6 +18,7 @@ use crate::audio::AudioPlayer;
 use crate::geometry::Dimension;
 use crate::graphics::animation::AnimationID;
 use crate::graphics::fonts::FontSystem;
+use crate::graphics::fullscreen::FullscreenSystem;
 use crate::graphics::rendering;
 use crate::hot_reload::ResourceReloader;
 use crate::input::config::ProgramConfig;
@@ -32,6 +33,7 @@ use geometry::Rect;
 use graphics::{rendering::Renderer, sprites::SpriteSystem};
 use input::InputDevices;
 use sdl2::event::{Event, WindowEvent};
+use sdl2::sys::SDL_WindowFlags;
 use sdl2::{
     keyboard::Keycode,
     video::{GLContext, GLProfile, Window},
@@ -89,8 +91,6 @@ fn init_window(
         .allow_highdpi()
         .opengl()
         .position_centered()
-        // TODO: uncomment this once we have framebuffer render-to-texture and
-        // can handle different window resolutions.
         .resizable()
         .hidden()
         .build()
@@ -169,17 +169,15 @@ fn point_is_inside_rect(point: glam::IVec2, rect: Rect) -> bool {
 }
 
 fn main() {
-    let init_window_width = 800;
-    let init_window_height = 600;
-
     let window_resolutions = ["200x150", "400x300", "800x600"];
-    let mut current_window_resolution = window_resolutions[0];
+    let mut current_window_resolution = window_resolutions[2];
     let (init_resolution_width, init_resolution_height) = match current_window_resolution {
         "200x150" => (200, 150),
         "400x300" => (400, 300),
         "800x600" => (800, 600),
         _ => panic!("unsupported resolution"),
     };
+    let (init_window_width, init_window_height) = (init_resolution_width, init_resolution_height);
 
     /* Initialize logging */
     init_logging();
@@ -197,7 +195,6 @@ fn main() {
     /* Initialize SDL */
     let sdl = sdl2::init().unwrap();
     let sdl_video = init_video(&sdl);
-
     // init audio
     let _sdl_audio = init_audio(&sdl);
     {
@@ -209,13 +206,14 @@ fn main() {
     }
     let _sdl_mixer = sdl2::mixer::init(sdl2::mixer::InitFlag::MP3).unwrap();
 
-    let window = init_window(
+    let mut window = init_window(
         &sdl_video,
         "Base Project",
         init_window_width,
         init_window_height,
         config.monitor as i32,
     );
+    let mut fullscreen_system = FullscreenSystem::new();
     log::info!("SDL initialized");
 
     /* Initialize OpenGL */
@@ -283,14 +281,13 @@ fn main() {
                     frame_tag_name,
                 ),
             );
-            animation_system.start_animation(smiley_animations[&direction]);
         }
     };
 
     let mut smiley_scaling = 2.0;
     let mut smiley_direction = Direction::Down;
     let mut smiley_input_stack = InputStack::<Direction>::new();
-    let mut smiley_animatin_is_playing = false;
+    let mut smiley_is_animating = false;
 
     let mut button_pressed = false;
     let mut event_pump = sdl.event_pump().unwrap();
@@ -325,8 +322,7 @@ fn main() {
         audio_reloader.register_sound(click_sound, &click_sound_path);
     }
 
-    // start music
-    audio_player.play_music(music);
+    let mut song_is_playing = false;
 
     'main_loop: loop {
         /* Input */
@@ -353,6 +349,7 @@ fn main() {
         input.mouse.update(renderer.canvas());
         input.keyboard.update();
 
+        /* Update */
         resource_reloader.update(
             delta_time_ms,
             &mut renderer,
@@ -361,11 +358,19 @@ fn main() {
             &mut audio_player,
         );
 
+        fullscreen_system.update(&window);
+
         if input.keyboard.is_pressed_now(Keycode::Escape) || input.quit {
             break 'main_loop;
         }
+
         if input.keyboard.is_pressed_now(Keycode::F3) {
             config.show_dev_ui = !config.show_dev_ui;
+        }
+
+        if input.keyboard.is_pressed_now(Keycode::F11) {
+            fullscreen_system.toggle_borderless_fullscreen(&mut window, &sdl_video);
+            renderer.on_window_resize(window.size().0, window.size().1);
         }
 
         // update smiley direction
@@ -401,19 +406,26 @@ fn main() {
         if !button_pressed && button_was_pressed && mouse_is_inside_button {
             audio_player.play_sound(click_sound);
 
-            if audio_player.music_is_paused() {
-                audio_player.resume_music();
-            } else {
-                audio_player.pause_music();
+            if song_is_playing {
+                if audio_player.music_is_paused() {
+                    audio_player.resume_music();
+                } else {
+                    audio_player.pause_music();
+                }
             }
 
-            smiley_animatin_is_playing = !smiley_animatin_is_playing;
+            if !song_is_playing {
+                song_is_playing = true;
+                audio_player.play_music(music);
+            }
+
             let animation = smiley_animations[&smiley_direction];
-            if smiley_animatin_is_playing {
+            if smiley_is_animating {
                 animation_system.stop_animation(animation);
             } else {
                 animation_system.start_animation(animation);
             }
+            smiley_is_animating = !smiley_is_animating;
         }
 
         // draw dev ui
@@ -451,9 +463,17 @@ fn main() {
                     }
                 }
 
-                ui.text(format!("window = {:?}", window.size()));
-                ui.text(format!("canvas = {:?}", renderer.canvas().scaled_dim));
-                ui.text(format!("scale = {:?}", renderer.canvas().scale));
+                ui.text(format!("window flags = {}", window.window_flags()));
+                ui.text(format!(
+                    "window borderless = {}",
+                    window.window_flags() & SDL_WindowFlags::SDL_WINDOW_BORDERLESS as u32
+                ));
+                ui.text(format!("window size = {:?}", window.size()));
+
+                let display_index = window.display_index().unwrap();
+                let display_mode = sdl_video.desktop_display_mode(display_index).unwrap();
+                ui.text(format!("monitor width: {}", display_mode.w));
+                ui.text(format!("monitor height: {}", display_mode.h));
 
                 debug_window.end();
             };
@@ -477,11 +497,7 @@ fn main() {
 
         // draw button text
         let offset = if button_pressed { 1 } else { 0 };
-        let text = if smiley_animatin_is_playing {
-            "Play"
-        } else {
-            "Pause"
-        };
+        let text = if smiley_is_animating { "Pause" } else { "Play" };
         let (text_width, text_height) = font_system.text_dimensions(arial_16, text);
         let text_x = button_rect.x + (button_width as i32 - text_width as i32) / 2 + offset;
         let text_y = button_rect.y + (button_height as i32 - text_height as i32) / 2 + offset;
