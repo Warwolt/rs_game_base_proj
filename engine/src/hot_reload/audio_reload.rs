@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    audio::{AudioPlayer, SoundID},
+    audio::{AudioSystem, SoundID},
     input::file::is_same_file,
 };
 
@@ -28,7 +28,7 @@ impl AudioReloader {
         self.sounds.insert(id, PathBuf::from(path));
     }
 
-    pub fn update(&self, updated_files: &[PathBuf], audio_player: &mut AudioPlayer) {
+    pub fn update(&self, updated_files: &[PathBuf], audio_player: &mut AudioSystem) {
         for updated_file in updated_files {
             // if reloader containts file, reload sound
             for (id, path) in &self.sounds {

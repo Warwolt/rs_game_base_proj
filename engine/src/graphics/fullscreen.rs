@@ -32,7 +32,7 @@ impl FullscreenSystem {
         }
     }
 
-    pub fn toggle_borderless_fullscreen(&self, window: &mut Window, sdl_video: &VideoSubsystem) {
+    pub fn toggle_fullscreen(&self, window: &mut Window, sdl_video: &VideoSubsystem) {
         match window_mode(window) {
             WindowMode::Windowed => {
                 change_to_fullscreen_mode(window, sdl_video);

@@ -113,7 +113,7 @@ impl AnimationSystem {
 
     #[allow(dead_code)]
     pub fn reset_animation(&mut self, animation_id: AnimationID) {
-        let mut animation = self.animations.get_mut(&animation_id).unwrap();
+        let animation = self.animations.get_mut(&animation_id).unwrap();
         animation.current_frame = animation.from;
         animation.playback_pos_ms = 0;
     }

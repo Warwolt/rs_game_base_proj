@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path};
 
 use sdl2::mixer::{Chunk, Music};
 
-pub struct AudioPlayer<'a> {
+pub struct AudioSystem<'a> {
     sounds: HashMap<SoundID, Chunk>,
     tracks: HashMap<MusicID, Music<'a>>,
     next_sound_id: u32,
@@ -15,9 +15,9 @@ pub struct SoundID(u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MusicID(u32);
 
-impl<'a> AudioPlayer<'a> {
+impl<'a> AudioSystem<'a> {
     pub fn new() -> Self {
-        AudioPlayer {
+        AudioSystem {
             sounds: HashMap::new(),
             tracks: HashMap::new(),
             next_sound_id: 0,

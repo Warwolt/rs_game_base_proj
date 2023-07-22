@@ -4,7 +4,7 @@ pub mod sprite_reload;
 use std::{path::PathBuf, time::Duration};
 
 use crate::{
-    audio::AudioPlayer,
+    audio::AudioSystem,
     graphics::{animation::AnimationSystem, rendering::Renderer, sprites::SpriteSystem},
     input::file::FileWatcher,
 };
@@ -33,7 +33,7 @@ impl ResourceReloader {
         renderer: &mut Renderer,
         sprite_system: &mut SpriteSystem,
         animation_system: &mut AnimationSystem,
-        audio_player: &mut AudioPlayer,
+        audio_player: &mut AudioSystem,
     ) {
         let updated_files = self.file_watcher.update(delta_time_ms);
         self.audio_reloader.update(&updated_files, audio_player);

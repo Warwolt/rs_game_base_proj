@@ -8,6 +8,10 @@ To run SDL, you need the following library files:
 - SDL2
 - SDL2_Mixer
 
+Hot reloading source code requires `cargo-watch`:
+
+- https://crates.io/crates/cargo-watch
+
 ### Windows
 For Windows, MSVC is used. Download the relevant libraries from:
 - https://github.com/libsdl-org/SDL/releases

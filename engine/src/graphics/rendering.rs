@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::{
     geometry::{Dimension, Rect},
     graphics::midpoint,
@@ -222,12 +224,7 @@ fn gl_error_to_string(err: gl::types::GLenum) -> &'static str {
 }
 
 impl Renderer {
-    pub fn new(
-        window_width: u32,
-        window_height: u32,
-        canvas_width: u32,
-        canvas_height: u32,
-    ) -> Self {
+    pub fn new(window_width: u32, window_height: u32) -> Self {
         // Enable OpenGL debug logging
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
@@ -253,7 +250,7 @@ impl Renderer {
         let canvas_vbo = new_vbo();
         let canvas_fbo = new_fbo();
         let canvas_texture = new_texture();
-        set_texture_image(canvas_texture, canvas_width, canvas_height, None);
+        set_texture_image(canvas_texture, window_width, window_height, None);
         set_framebuffer_texture(canvas_fbo, canvas_texture);
         set_vertex_data(
             canvas_vbo,
@@ -290,8 +287,8 @@ impl Renderer {
                 canvas_texture,
                 window_width as f32,
                 window_height as f32,
-                canvas_width,
-                canvas_height,
+                window_width,
+                window_height,
             ),
             draw: DrawData {
                 draw_color: ColorRGBA(0, 0, 0, 255),
