@@ -1,7 +1,13 @@
+use engine::Engine;
+use engine::{
+    geometry::Rect, graphics::rendering::Renderer, imgui::ImGui, input::config::ProgramConfig,
+};
+use sdl2::keyboard::Keycode;
 use std::path::PathBuf;
 
 use engine::imgui;
-use engine::input::config::ProgramConfig;
+
+struct Game {}
 
 fn init_logging() {
     simple_logger::SimpleLogger::new()
@@ -27,6 +33,7 @@ fn main() {
     let mut config = init_config();
     let mut engine = engine::init(&config, 800, 600);
     let mut imgui = imgui::init(&mut engine, &config);
+    let game = Game {};
 
     /* Main loop */
     while !engine.should_quit() {
@@ -36,33 +43,26 @@ fn main() {
         imgui.handle_input(&sdl_events);
 
         /* Update */
-        game::update(&mut engine, &mut imgui, &mut config);
+        game.update(&mut engine, &mut imgui);
         engine.update();
 
         /* Render */
-        game::render(&mut engine.renderer);
+        game.render(&mut engine.renderer);
         engine.render();
         imgui.render();
 
         engine.end_frame();
     }
 
+    config.show_dev_ui = imgui.is_visible();
     config.write_to_disk();
 }
 
-mod game {
-    use engine::Engine;
-    use engine::{
-        geometry::Rect, graphics::rendering::Renderer, imgui::ImGui, input::config::ProgramConfig,
-    };
-    use sdl2::keyboard::Keycode;
-
-    pub fn update(engine: &mut Engine, imgui: &mut ImGui, config: &mut ProgramConfig) {
+impl Game {
+    pub fn update(&self, engine: &mut Engine, imgui: &mut ImGui) {
         if engine.input.keyboard.is_pressed_now(Keycode::F3) {
             imgui.toggle_visible();
         }
-
-        config.show_dev_ui = imgui.is_visible();
 
         // draw imgui ui
         let show_imgui = imgui.is_visible();
@@ -77,7 +77,7 @@ mod game {
         }
     }
 
-    pub fn render(renderer: &mut Renderer) {
+    pub fn render(&self, renderer: &mut Renderer) {
         // draw background
         renderer.clear();
         renderer.set_draw_color(0, 129, 129, 255);
