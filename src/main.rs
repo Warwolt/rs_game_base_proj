@@ -47,7 +47,7 @@ fn main() {
         engine.update();
 
         /* Render */
-        game.render(&mut engine.renderer);
+        game.render(&mut engine.renderer());
         engine.render();
         imgui.render();
 
@@ -60,7 +60,7 @@ fn main() {
 
 impl Game {
     pub fn update(&self, engine: &mut Engine, imgui: &mut ImGui) {
-        if engine.input.keyboard.is_pressed_now(Keycode::F3) {
+        if engine.input().keyboard.is_pressed_now(Keycode::F3) {
             imgui.toggle_visible();
         }
 

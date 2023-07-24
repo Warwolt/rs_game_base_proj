@@ -27,17 +27,17 @@ use std::time::SystemTime;
 pub struct Engine<'a> {
     // SDL
     _sdl: sdl2::Sdl,
-    pub sdl_video: sdl2::VideoSubsystem,
+    sdl_video: sdl2::VideoSubsystem,
     _sdl_audio: sdl2::AudioSubsystem,
     _sdl_mixer: sdl2::mixer::Sdl2MixerContext,
-    pub sdl_event_pump: sdl2::EventPump,
+    sdl_event_pump: sdl2::EventPump,
     _gl_context: sdl2::video::GLContext,
 
     // Game Loop
-    pub window: sdl2::video::Window,
-    pub input: InputDevices,
-    pub renderer: Renderer,
-    pub frame: FrameTime,
+    window: sdl2::video::Window,
+    input: InputDevices,
+    renderer: Renderer,
+    frame: FrameTime,
     should_quit: bool,
 
     // Systems
@@ -124,6 +124,14 @@ impl<'a> Engine<'a> {
             .as_millis();
         self.frame.prev_time = time_now;
         self.sdl_event_pump.poll_iter().collect_vec()
+    }
+
+    pub fn input(&self) -> &InputDevices {
+        &self.input
+    }
+
+    pub fn renderer(&mut self) -> &mut Renderer {
+        &mut self.renderer
     }
 
     pub fn should_quit(&self) -> bool {
