@@ -53,7 +53,6 @@ pub struct FrameTime {
     prev_time: SystemTime,
 }
 
-#[no_mangle]
 pub fn init<'a>(config: &ProgramConfig, window_width: u32, window_height: u32) -> Engine<'a> {
     // SDL
     let sdl = sdl2::init().unwrap();
@@ -116,65 +115,58 @@ pub fn init<'a>(config: &ProgramConfig, window_width: u32, window_height: u32) -
     }
 }
 
-#[no_mangle]
-pub fn begin_frame(engine: &mut Engine) -> Vec<sdl2::event::Event> {
-    let time_now = SystemTime::now();
-    engine.frame.delta_ms = time_now
-        .duration_since(engine.frame.prev_time)
-        .unwrap()
-        .as_millis();
-    engine.frame.prev_time = time_now;
-    engine.sdl_event_pump.poll_iter().collect_vec()
-}
+impl<'a> Engine<'a> {
+    pub fn begin_frame(&mut self) -> Vec<sdl2::event::Event> {
+        let time_now = SystemTime::now();
+        self.frame.delta_ms = time_now
+            .duration_since(self.frame.prev_time)
+            .unwrap()
+            .as_millis();
+        self.frame.prev_time = time_now;
+        self.sdl_event_pump.poll_iter().collect_vec()
+    }
 
-#[no_mangle]
-pub fn should_quit(engine: &Engine) -> bool {
-    engine.should_quit
-}
+    pub fn should_quit(&self) -> bool {
+        self.should_quit
+    }
 
-#[no_mangle]
-pub fn handle_input(engine: &mut Engine, events: &Vec<sdl2::event::Event>) {
-    for event in events {
-        engine.input.register_event(&event);
-        match *event {
-            sdl2::event::Event::Window { win_event, .. } => {
-                if let sdl2::event::WindowEvent::Resized(width, height) = win_event {
-                    engine
-                        .renderer
-                        .on_window_resize(width as u32, height as u32)
+    pub fn handle_input(&mut self, events: &Vec<sdl2::event::Event>) {
+        for event in events {
+            self.input.register_event(&event);
+            match *event {
+                sdl2::event::Event::Window { win_event, .. } => {
+                    if let sdl2::event::WindowEvent::Resized(width, height) = win_event {
+                        self.renderer.on_window_resize(width as u32, height as u32)
+                    }
                 }
+                _ => (),
             }
-            _ => (),
+        }
+        self.input.mouse.update(self.renderer.canvas());
+        self.input.keyboard.update();
+    }
+
+    pub fn update(&mut self) {
+        self.fullscreen_system.update(&self.window);
+        if self.input.keyboard.is_pressed_now(Keycode::F11) {
+            self.fullscreen_system
+                .toggle_fullscreen(&mut self.window, &self.sdl_video);
+            let (width, height) = self.window.size();
+            self.renderer.on_window_resize(width, height);
+        }
+
+        if self.input.keyboard.is_pressed_now(Keycode::Escape) || self.input.quit {
+            self.should_quit = true;
         }
     }
-    engine.input.mouse.update(engine.renderer.canvas());
-    engine.input.keyboard.update();
-}
 
-#[no_mangle]
-pub fn update(engine: &mut Engine) {
-    engine.fullscreen_system.update(&engine.window);
-    if engine.input.keyboard.is_pressed_now(Keycode::F11) {
-        engine
-            .fullscreen_system
-            .toggle_fullscreen(&mut engine.window, &engine.sdl_video);
-        let (width, height) = engine.window.size();
-        engine.renderer.on_window_resize(width, height);
+    pub fn render(&mut self) {
+        self.renderer.render();
     }
 
-    if engine.input.keyboard.is_pressed_now(Keycode::Escape) || engine.input.quit {
-        engine.should_quit = true;
+    pub fn end_frame(&mut self) {
+        self.window.gl_swap_window();
     }
-}
-
-#[no_mangle]
-pub fn render(renderer: &mut Renderer) {
-    renderer.render();
-}
-
-#[no_mangle]
-pub fn end_frame(engine: &mut Engine) {
-    engine.window.gl_swap_window();
 }
 
 fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {

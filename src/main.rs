@@ -29,22 +29,22 @@ fn main() {
     let mut imgui = imgui::init(&mut engine, &config);
 
     /* Main loop */
-    while !engine::should_quit(&engine) {
+    while !engine.should_quit() {
         /* Input */
-        let sdl_events = engine::begin_frame(&mut engine);
-        engine::handle_input(&mut engine, &sdl_events);
+        let sdl_events = engine.begin_frame();
+        engine.handle_input(&sdl_events);
         imgui::handle_input(&mut imgui, &sdl_events);
 
         /* Update */
         game::update(&mut engine, &mut imgui, &mut config);
-        engine::update(&mut engine);
+        engine.update();
 
         /* Render */
         game::render(&mut engine.renderer);
-        engine::render(&mut engine.renderer);
+        engine.render();
         imgui::render(&mut imgui);
 
-        engine::end_frame(&mut engine);
+        engine.end_frame();
     }
 
     config.write_to_disk();
