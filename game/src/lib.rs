@@ -33,7 +33,6 @@ pub fn update(_state: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
         imgui.toggle_visible();
     }
 
-    // draw imgui ui
     if let Some(ui) = begin_imgui_frame(imgui, engine) {
         draw_debug_ui(ui);
     }

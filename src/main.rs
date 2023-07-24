@@ -1,4 +1,5 @@
 use engine::input::config::ProgramConfig;
+use sdl2::keyboard::Keycode;
 use std::path::PathBuf;
 
 #[hot_lib_reloader::hot_module(dylib = "game")]
@@ -53,6 +54,26 @@ fn on_game_reloaded() {
     }
 }
 
+fn rebuild_game_lib() {
+    log::info!("Rebuilding game code");
+    let _ = std::process::Command::new("cargo")
+        .args(["build", "-p", "game"])
+        .spawn()
+        .expect("failed to execute process");
+}
+
+fn handle_hot_reloading(engine: &engine::Engine) {
+    if cfg!(debug_assertions) {
+        if engine.input().keyboard.is_pressed_now(Keycode::F5) {
+            rebuild_game_lib();
+        }
+
+        if game::was_reloaded() {
+            on_game_reloaded();
+        }
+    }
+}
+
 fn main() {
     /* Initialize */
     init_logging();
@@ -63,16 +84,13 @@ fn main() {
 
     /* Main loop */
     while !engine.should_quit() {
-        if game::was_reloaded() {
-            on_game_reloaded();
-        }
-
         /* Input */
         let sdl_events = engine.begin_frame();
         engine.handle_input(&sdl_events);
         imgui.handle_input(&sdl_events);
 
         /* Update */
+        handle_hot_reloading(&engine);
         game::update(&mut game, &mut engine, &mut imgui);
         engine.update();
 
