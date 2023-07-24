@@ -34,7 +34,8 @@ fn main() {
             break 'main_loop;
         }
 
-        // app update
+        // TODO: move into `game` crate?
+        // game update
         {
             if engine.input.keyboard.is_pressed_now(Keycode::F3) {
                 config.show_dev_ui = !config.show_dev_ui;
@@ -53,7 +54,7 @@ fn main() {
         }
 
         /* Render */
-        // app render
+        // game render
         {
             // draw background
             engine.renderer.clear();
