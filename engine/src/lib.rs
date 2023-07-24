@@ -6,12 +6,11 @@ pub mod audio;
 pub mod geometry;
 pub mod graphics;
 pub mod hot_reload;
+pub mod imgui;
 pub mod input;
 
 use crate::input::config::ProgramConfig;
-use log::LevelFilter;
 use sdl2::keyboard::Keycode;
-use simple_logger::SimpleLogger;
 
 use crate::{
     audio::AudioSystem,
@@ -54,151 +53,128 @@ pub struct FrameTime {
     prev_time: SystemTime,
 }
 
-pub struct ImGui {
-    pub imgui: imgui::Context,
-    pub imgui_sdl: imgui_sdl2::ImguiSdl2,
-    pub imgui_renderer: imgui_opengl_renderer::Renderer,
-}
+#[no_mangle]
+pub fn init<'a>(config: &ProgramConfig, window_width: u32, window_height: u32) -> Engine<'a> {
+    // SDL
+    let sdl = sdl2::init().unwrap();
+    let sdl_video = init_video(&sdl);
+    let sdl_audio = init_audio(&sdl);
+    let sdl_mixer = init_mixer(&sdl_audio);
+    let sdl_event_pump = sdl.event_pump().unwrap();
+    let window = init_window(
+        &sdl_video,
+        "Game",
+        window_width,
+        window_height,
+        config.monitor as i32,
+    );
+    log::info!("SDL initialized");
 
-impl<'a> Engine<'a> {
-    pub fn new(config: &ProgramConfig, window_width: u32, window_height: u32) -> Self {
+    // OpenGL
+    let _gl_context = init_opengl(&window); // closes on drop
+    gl::load_with(|s| sdl_video.gl_get_proc_address(s) as _);
+    log::info!("Created OpenGL context");
+
+    // Game Loop
+    let input = InputDevices::new();
+    let renderer = Renderer::new(window_width, window_height);
+    let frame = FrameTime {
+        delta_ms: 0,
+        prev_time: SystemTime::now(),
+    };
+    let should_quit = false;
+
+    // Systems
+    let fullscreen_system = FullscreenSystem::new();
+    let audio_system = AudioSystem::new();
+    let sprite_system = SpriteSystem::new();
+    let animation_system = AnimationSystem::new();
+    let font_system = FontSystem::new();
+
+    Engine {
         // SDL
-        let sdl = sdl2::init().unwrap();
-        let sdl_video = init_video(&sdl);
-        let sdl_audio = init_audio(&sdl);
-        let sdl_mixer = init_mixer(&sdl_audio);
-        let sdl_event_pump = sdl.event_pump().unwrap();
-        let window = init_window(
-            &sdl_video,
-            "Game",
-            window_width,
-            window_height,
-            config.monitor as i32,
-        );
-        log::info!("SDL initialized");
-
-        // OpenGL
-        let _gl_context = init_opengl(&window); // closes on drop
-        gl::load_with(|s| sdl_video.gl_get_proc_address(s) as _);
-        log::info!("Created OpenGL context");
+        _sdl: sdl,
+        sdl_video,
+        _sdl_audio: sdl_audio,
+        _sdl_mixer: sdl_mixer,
+        sdl_event_pump,
+        _gl_context,
 
         // Game Loop
-        let input = InputDevices::new();
-        let renderer = Renderer::new(window_width, window_height);
-        let frame = FrameTime {
-            delta_ms: 0,
-            prev_time: SystemTime::now(),
-        };
-        let should_quit = false;
+        window,
+        input,
+        renderer,
+        frame,
+        should_quit,
 
         // Systems
-        let fullscreen_system = FullscreenSystem::new();
-        let audio_system = AudioSystem::new();
-        let sprite_system = SpriteSystem::new();
-        let animation_system = AnimationSystem::new();
-        let font_system = FontSystem::new();
-
-        Engine {
-            // SDL
-            _sdl: sdl,
-            sdl_video,
-            _sdl_audio: sdl_audio,
-            _sdl_mixer: sdl_mixer,
-            sdl_event_pump,
-            _gl_context,
-
-            // Game Loop
-            window,
-            input,
-            renderer,
-            frame,
-            should_quit,
-
-            // Systems
-            fullscreen_system,
-            _audio_system: audio_system,
-            _sprite_system: sprite_system,
-            _animation_system: animation_system,
-            _font_system: font_system,
-        }
-    }
-
-    pub fn begin_frame(&mut self) -> Vec<sdl2::event::Event> {
-        let time_now = SystemTime::now();
-        self.frame.delta_ms = time_now
-            .duration_since(self.frame.prev_time)
-            .unwrap()
-            .as_millis();
-        self.frame.prev_time = time_now;
-        self.sdl_event_pump.poll_iter().collect_vec()
-    }
-
-    pub fn should_quit(&self) -> bool {
-        self.should_quit
-    }
-
-    pub fn handle_input(&mut self, events: &Vec<sdl2::event::Event>) {
-        for event in events {
-            self.input.register_event(&event);
-            match *event {
-                sdl2::event::Event::Window { win_event, .. } => {
-                    if let sdl2::event::WindowEvent::Resized(width, height) = win_event {
-                        self.renderer.on_window_resize(width as u32, height as u32)
-                    }
-                }
-                _ => (),
-            }
-        }
-        self.input.mouse.update(self.renderer.canvas());
-        self.input.keyboard.update();
-    }
-
-    pub fn update(&mut self) {
-        self.fullscreen_system.update(&self.window);
-        if self.input.keyboard.is_pressed_now(Keycode::F11) {
-            self.fullscreen_system
-                .toggle_fullscreen(&mut self.window, &self.sdl_video);
-            let (width, height) = self.window.size();
-            self.renderer.on_window_resize(width, height);
-        }
-
-        if self.input.keyboard.is_pressed_now(Keycode::Escape) || self.input.quit {
-            self.should_quit = true;
-        }
+        fullscreen_system,
+        _audio_system: audio_system,
+        _sprite_system: sprite_system,
+        _animation_system: animation_system,
+        _font_system: font_system,
     }
 }
 
-impl ImGui {
-    pub fn new(engine: &Engine) -> Self {
-        let mut imgui = imgui::Context::create();
-        let imgui_sdl = imgui_sdl2::ImguiSdl2::new(&mut imgui, &engine.window);
-        let get_proc_address = |s| engine.sdl_video.gl_get_proc_address(s) as _;
-        let imgui_renderer = imgui_opengl_renderer::Renderer::new(&mut imgui, get_proc_address);
-        log::info!("ImGui initialied");
+#[no_mangle]
+pub fn begin_frame(engine: &mut Engine) -> Vec<sdl2::event::Event> {
+    let time_now = SystemTime::now();
+    engine.frame.delta_ms = time_now
+        .duration_since(engine.frame.prev_time)
+        .unwrap()
+        .as_millis();
+    engine.frame.prev_time = time_now;
+    engine.sdl_event_pump.poll_iter().collect_vec()
+}
 
-        ImGui {
-            imgui,
-            imgui_sdl,
-            imgui_renderer,
+#[no_mangle]
+pub fn should_quit(engine: &Engine) -> bool {
+    engine.should_quit
+}
+
+#[no_mangle]
+pub fn handle_input(engine: &mut Engine, events: &Vec<sdl2::event::Event>) {
+    for event in events {
+        engine.input.register_event(&event);
+        match *event {
+            sdl2::event::Event::Window { win_event, .. } => {
+                if let sdl2::event::WindowEvent::Resized(width, height) = win_event {
+                    engine
+                        .renderer
+                        .on_window_resize(width as u32, height as u32)
+                }
+            }
+            _ => (),
         }
     }
+    engine.input.mouse.update(engine.renderer.canvas());
+    engine.input.keyboard.update();
+}
 
-    pub fn handle_input(&mut self, events: &Vec<sdl2::event::Event>) {
-        for event in events {
-            self.imgui_sdl.handle_event(&mut self.imgui, event);
-        }
+#[no_mangle]
+pub fn update(engine: &mut Engine) {
+    engine.fullscreen_system.update(&engine.window);
+    if engine.input.keyboard.is_pressed_now(Keycode::F11) {
+        engine
+            .fullscreen_system
+            .toggle_fullscreen(&mut engine.window, &engine.sdl_video);
+        let (width, height) = engine.window.size();
+        engine.renderer.on_window_resize(width, height);
     }
 
-    pub fn begin_frame(&mut self, engine: &Engine) -> &mut imgui::Ui {
-        self.imgui_sdl.prepare_frame(
-            self.imgui.io_mut(),
-            &engine.window,
-            &engine.sdl_event_pump.mouse_state(),
-        );
-        let frame = self.imgui.frame();
-        self.imgui_sdl.prepare_render(&frame, &engine.window);
-        frame
+    if engine.input.keyboard.is_pressed_now(Keycode::Escape) || engine.input.quit {
+        engine.should_quit = true;
     }
+}
+
+#[no_mangle]
+pub fn render(renderer: &mut Renderer) {
+    renderer.render();
+}
+
+#[no_mangle]
+pub fn end_frame(engine: &mut Engine) {
+    engine.window.gl_swap_window();
 }
 
 fn init_video(sdl: &sdl2::Sdl) -> sdl2::VideoSubsystem {
@@ -264,11 +240,4 @@ fn init_opengl(window: &sdl2::video::Window) -> sdl2::video::GLContext {
     window.gl_make_current(&gl_context).unwrap();
     window.subsystem().gl_set_swap_interval(1).unwrap();
     return gl_context;
-}
-
-pub fn init_logging() {
-    SimpleLogger::new()
-        .with_module_level("hot_lib_reloader", LevelFilter::Info)
-        .init()
-        .unwrap();
 }

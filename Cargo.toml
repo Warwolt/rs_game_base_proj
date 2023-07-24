@@ -14,14 +14,17 @@ engine = { path = "engine" }
 log = "0.4.17"
 simple_logger = "4.1.0"
 
-# Graphics
-gl = "0.10.0"
-image = "0.24.6"
-freetype-rs = "0.32.0"
+# Hot reloading
+hot-lib-reloader = "^0.6"
+notify = "5.1.0"
 
 # Platform
 sdl2 = { version = "0.34.5", features = ["mixer"] }
-notify = "5.1.0"
+
+# Example dependencies
+gl = "0.10.0"
+image = "0.24.6"
+freetype-rs = "0.32.0"
 
 [build-dependencies]
 # Application Icon
@@ -30,4 +33,5 @@ winres = "0.1"
 
 # Copy DLLs
 copy_to_output = "2.1.0"
+
 
