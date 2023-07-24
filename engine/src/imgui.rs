@@ -22,31 +22,33 @@ pub fn init(engine: &Engine, config: &ProgramConfig) -> ImGui {
     }
 }
 
-pub fn begin_frame<'a>(imgui: &'a mut ImGui, engine: &'a Engine<'a>) -> &'a mut imgui::Ui {
-    imgui.imgui_sdl.prepare_frame(
-        imgui.imgui.io_mut(),
-        &engine.window,
-        &engine.sdl_event_pump.mouse_state(),
-    );
-    let frame = imgui.imgui.frame();
-    imgui.imgui_sdl.prepare_render(&frame, &engine.window);
-    frame
-}
-
-pub fn handle_input(imgui: &mut ImGui, events: &Vec<sdl2::event::Event>) {
-    for event in events {
-        imgui.imgui_sdl.handle_event(&mut imgui.imgui, event);
+impl ImGui {
+    pub fn begin_frame(&mut self, engine: &Engine) -> &mut imgui::Ui {
+        self.imgui_sdl.prepare_frame(
+            self.imgui.io_mut(),
+            &engine.window,
+            &engine.sdl_event_pump.mouse_state(),
+        );
+        let frame = self.imgui.frame();
+        self.imgui_sdl.prepare_render(&frame, &engine.window);
+        frame
     }
-}
 
-pub fn render(imgui: &mut ImGui) {
-    imgui.imgui_renderer.render(&mut imgui.imgui);
-}
+    pub fn handle_input(&mut self, events: &Vec<sdl2::event::Event>) {
+        for event in events {
+            self.imgui_sdl.handle_event(&mut self.imgui, event);
+        }
+    }
 
-pub fn toggle_visible(imgui: &mut ImGui) {
-    imgui.is_visible = !imgui.is_visible;
-}
+    pub fn render(&mut self) {
+        self.imgui_renderer.render(&mut self.imgui);
+    }
 
-pub fn is_visible(imgui: &ImGui) -> bool {
-    imgui.is_visible
+    pub fn toggle_visible(&mut self) {
+        self.is_visible = !self.is_visible;
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.is_visible
+    }
 }

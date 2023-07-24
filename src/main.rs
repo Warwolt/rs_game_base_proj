@@ -33,7 +33,7 @@ fn main() {
         /* Input */
         let sdl_events = engine.begin_frame();
         engine.handle_input(&sdl_events);
-        imgui::handle_input(&mut imgui, &sdl_events);
+        imgui.handle_input(&sdl_events);
 
         /* Update */
         game::update(&mut engine, &mut imgui, &mut config);
@@ -42,7 +42,7 @@ fn main() {
         /* Render */
         game::render(&mut engine.renderer);
         engine.render();
-        imgui::render(&mut imgui);
+        imgui.render();
 
         engine.end_frame();
     }
@@ -53,23 +53,20 @@ fn main() {
 mod game {
     use engine::Engine;
     use engine::{
-        geometry::Rect,
-        graphics::rendering::Renderer,
-        imgui::{self, ImGui},
-        input::config::ProgramConfig,
+        geometry::Rect, graphics::rendering::Renderer, imgui::ImGui, input::config::ProgramConfig,
     };
     use sdl2::keyboard::Keycode;
 
     pub fn update(engine: &mut Engine, imgui: &mut ImGui, config: &mut ProgramConfig) {
         if engine.input.keyboard.is_pressed_now(Keycode::F3) {
-            imgui::toggle_visible(imgui);
+            imgui.toggle_visible();
         }
 
-        config.show_dev_ui = imgui::is_visible(imgui);
+        config.show_dev_ui = imgui.is_visible();
 
         // draw imgui ui
-        let show_imgui = imgui::is_visible(imgui);
-        let debug_ui = imgui::begin_frame(imgui, engine);
+        let show_imgui = imgui.is_visible();
+        let debug_ui = imgui.begin_frame(engine);
         if show_imgui {
             if let Some(debug_window) = debug_ui.window("Debug Window").begin() {
                 if debug_ui.button("Press me!") {
