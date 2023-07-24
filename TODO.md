@@ -25,6 +25,10 @@
   - [x] play music
   - [x] hot reload audio files
 
+- [ ] gui
+  - [ ] setup a gui framework
+  - [ ] add simple editor for testing out geometry code
+
 - [ ] physics
   - [ ] geometry
     - [ ] point line intersection
@@ -37,9 +41,7 @@
 
 - [ ] dev tools
   - [ ] add profiler (https://crates.io/crates/microprofile)
-  - [ ] ~~source code hot reloading (https://robert.kra.hn/posts/hot-reloading-rust/)~~
-    - Tried this, but it's limited to specific functions and not all source
-      code, so can't really replicate Live++ style workflow.
+  - [x] source code hot reloading (https://robert.kra.hn/posts/hot-reloading-rust/)
   - [x] resource hot reloading
     - [x] sprites
     - [x] sounds
