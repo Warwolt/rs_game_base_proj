@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["engine"]
+members = ["engine", "game"]
 
 [package]
 name = "base_project"
@@ -9,6 +9,7 @@ edition = "2021"
 
 [dependencies]
 engine = { path = "engine" }
+game = { path = "game" }
 
 # Logging
 log = "0.4.17"
@@ -17,6 +18,9 @@ simple_logger = "4.1.0"
 # Hot reloading
 hot-lib-reloader = "^0.6"
 notify = "5.1.0"
+
+# ImGui
+imgui = "0.9.0"
 
 # Platform
 sdl2 = { version = "0.34.5", features = ["mixer"] }

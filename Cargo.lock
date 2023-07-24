@@ -38,9 +38,11 @@ dependencies = [
  "copy_to_output",
  "engine",
  "freetype-rs",
+ "game",
  "gl",
  "hot-lib-reloader",
  "image",
+ "imgui",
  "log",
  "notify 5.2.0",
  "sdl2",
@@ -226,7 +228,6 @@ dependencies = [
  "sdl2",
  "serde",
  "serde_json",
- "simple_logger",
 ]
 
 [[package]]
@@ -392,6 +393,22 @@ name = "futures-sink"
 version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f43be4fe21a13b9781a69afa4985b0f6ee0e1afab2c6f454a8cf30e2b2237b6e"
+
+[[package]]
+name = "game"
+version = "0.1.0"
+dependencies = [
+ "aseprite",
+ "configparser",
+ "engine",
+ "imgui",
+ "itertools",
+ "log",
+ "parameterized",
+ "sdl2",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "getrandom"

@@ -1,17 +1,22 @@
-use engine::Engine;
-use engine::{
-    geometry::Rect, graphics::rendering::Renderer, imgui::ImGui, input::config::ProgramConfig,
-};
-use sdl2::keyboard::Keycode;
+use engine::input::config::ProgramConfig;
 use std::path::PathBuf;
 
-use engine::imgui;
+#[hot_lib_reloader::hot_module(dylib = "game")]
+mod game {
+    pub use game::GameState;
+    // these usages should mirror the ones of game/src/lib.rs
+    pub use engine::{geometry::Rect, graphics::rendering::Renderer, imgui::ImGui, Engine};
+    pub use sdl2::keyboard::Keycode;
 
-struct Game {}
+    hot_functions_from_file!("game/src/lib.rs");
+
+    #[lib_updated]
+    pub fn was_reloaded() -> bool {}
+}
 
 fn init_logging() {
     simple_logger::SimpleLogger::new()
-        .with_module_level("hot_lib_reloader", log::LevelFilter::Info)
+        .with_module_level("hot_lib_reloader", log::LevelFilter::Error)
         .init()
         .unwrap();
 }
@@ -27,27 +32,52 @@ fn init_config() -> ProgramConfig {
     config
 }
 
+fn init_game() -> game::GameState {
+    unsafe {
+        game::init(
+            log::logger(),
+            log::max_level(),
+            imgui::sys::igGetCurrentContext(),
+        )
+    }
+}
+
+fn on_game_reloaded() {
+    unsafe {
+        log::info!("Game code hot-reloaded");
+        game::set_global_contexts(
+            log::logger(),
+            log::max_level(),
+            imgui::sys::igGetCurrentContext(),
+        );
+    }
+}
+
 fn main() {
     /* Initialize */
     init_logging();
     let mut config = init_config();
     let mut engine = engine::init(&config, 800, 600);
-    let mut imgui = imgui::init(&mut engine, &config);
-    let game = Game {};
+    let mut imgui = engine::imgui::init(&mut engine, &config);
+    let mut game = init_game();
 
     /* Main loop */
     while !engine.should_quit() {
+        if game::was_reloaded() {
+            on_game_reloaded();
+        }
+
         /* Input */
         let sdl_events = engine.begin_frame();
         engine.handle_input(&sdl_events);
         imgui.handle_input(&sdl_events);
 
         /* Update */
-        game.update(&mut engine, &mut imgui);
+        game::update(&mut game, &mut engine, &mut imgui);
         engine.update();
 
         /* Render */
-        game.render(&mut engine.renderer());
+        game::render(&mut game, &mut engine.renderer());
         engine.render();
         imgui.render();
 
@@ -56,36 +86,4 @@ fn main() {
 
     config.show_dev_ui = imgui.is_visible();
     config.write_to_disk();
-}
-
-impl Game {
-    pub fn update(&self, engine: &mut Engine, imgui: &mut ImGui) {
-        if engine.input().keyboard.is_pressed_now(Keycode::F3) {
-            imgui.toggle_visible();
-        }
-
-        // draw imgui ui
-        let show_imgui = imgui.is_visible();
-        let debug_ui = imgui.begin_frame(engine);
-        if show_imgui {
-            if let Some(debug_window) = debug_ui.window("Debug Window").begin() {
-                if debug_ui.button("Press me!") {
-                    log::debug!("button pressed");
-                }
-                debug_window.end();
-            }
-        }
-    }
-
-    pub fn render(&self, renderer: &mut Renderer) {
-        // draw background
-        renderer.clear();
-        renderer.set_draw_color(0, 129, 129, 255);
-        renderer.draw_rect_fill(Rect {
-            x: 0,
-            y: 0,
-            w: renderer.canvas().dim.width,
-            h: renderer.canvas().dim.height,
-        });
-    }
 }
