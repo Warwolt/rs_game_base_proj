@@ -1,6 +1,7 @@
 use std::{collections::HashMap, hash::Hash, path::Path};
 
 use freetype::face::LoadFlag;
+use sdl2::video::GLContext;
 
 use crate::geometry::Rect;
 
@@ -40,7 +41,13 @@ impl FontSystem {
         }
     }
 
-    pub fn add_font(&mut self, renderer: &mut Renderer, path: &Path, font_size: u32) -> FontID {
+    pub fn add_font(
+        &mut self,
+        gl: &GLContext,
+        renderer: &mut Renderer,
+        path: &Path,
+        font_size: u32,
+    ) -> FontID {
         let face = self.library.new_face(path, 0).unwrap();
         face.set_pixel_sizes(0, font_size).unwrap();
         let mut glyphs = HashMap::new();
@@ -61,7 +68,7 @@ impl FontSystem {
                 }
             }
 
-            let texture_id = renderer.add_texture(&texture_data, bitmap_width, bitmap_height);
+            let texture_id = renderer.add_texture(gl, &texture_data, bitmap_width, bitmap_height);
             glyphs.insert(
                 character as char,
                 GlyphData {

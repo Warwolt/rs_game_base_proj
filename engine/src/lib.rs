@@ -10,7 +10,7 @@ pub mod imgui;
 pub mod input;
 
 use crate::input::config::ProgramConfig;
-use sdl2::keyboard::Keycode;
+use sdl2::{keyboard::Keycode, video::GLContext};
 
 use crate::{
     audio::AudioSystem,
@@ -31,7 +31,6 @@ pub struct Engine<'a> {
     _sdl_audio: sdl2::AudioSubsystem,
     _sdl_mixer: sdl2::mixer::Sdl2MixerContext,
     sdl_event_pump: sdl2::EventPump,
-    _gl_context: sdl2::video::GLContext,
 
     // Game Loop
     window: sdl2::video::Window,
@@ -48,13 +47,21 @@ pub struct Engine<'a> {
     _font_system: FontSystem,
 }
 
+pub struct SdlContext {
+    pub sdl: sdl2::Sdl,
+    pub sdl_video: sdl2::VideoSubsystem,
+    pub sdl_audio: sdl2::AudioSubsystem,
+    pub sdl_mixer: sdl2::mixer::Sdl2MixerContext,
+    pub sdl_event_pump: sdl2::EventPump,
+    pub window: sdl2::video::Window,
+}
+
 pub struct FrameTime {
     pub delta_ms: u128,
     prev_time: SystemTime,
 }
 
-pub fn init<'a>(config: &ProgramConfig, window_width: u32, window_height: u32) -> Engine<'a> {
-    // SDL
+pub fn init_sdl(config: &ProgramConfig, window_width: u32, window_height: u32) -> SdlContext {
     let sdl = sdl2::init().unwrap();
     let sdl_video = init_video(&sdl);
     let sdl_audio = init_audio(&sdl);
@@ -69,14 +76,30 @@ pub fn init<'a>(config: &ProgramConfig, window_width: u32, window_height: u32) -
     );
     log::info!("SDL initialized");
 
-    // OpenGL
-    let _gl_context = init_opengl(&window); // closes on drop
-    gl::load_with(|s| sdl_video.gl_get_proc_address(s) as _);
-    log::info!("Created OpenGL context");
+    SdlContext {
+        sdl,
+        sdl_video,
+        sdl_audio,
+        sdl_mixer,
+        sdl_event_pump,
+        window,
+    }
+}
 
+pub fn init_opengl(sdl: &SdlContext) -> GLContext {
+    let gl_context = sdl.window.gl_create_context().unwrap();
+    sdl.window.gl_make_current(&gl_context).unwrap();
+    sdl.window.subsystem().gl_set_swap_interval(1).unwrap();
+    gl::load_with(|s| sdl.sdl_video.gl_get_proc_address(s) as _);
+    log::info!("Created OpenGL context");
+    return gl_context;
+}
+
+pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
     // Game Loop
+    let (window_width, window_height) = sdl.window.size();
     let input = InputDevices::new();
-    let renderer = Renderer::new(window_width, window_height);
+    let renderer = Renderer::new(gl, window_width, window_height);
     let frame = FrameTime {
         delta_ms: 0,
         prev_time: SystemTime::now(),
@@ -92,15 +115,14 @@ pub fn init<'a>(config: &ProgramConfig, window_width: u32, window_height: u32) -
 
     Engine {
         // SDL
-        _sdl: sdl,
-        sdl_video,
-        _sdl_audio: sdl_audio,
-        _sdl_mixer: sdl_mixer,
-        sdl_event_pump,
-        _gl_context,
+        _sdl: sdl.sdl,
+        sdl_video: sdl.sdl_video,
+        _sdl_audio: sdl.sdl_audio,
+        _sdl_mixer: sdl.sdl_mixer,
+        sdl_event_pump: sdl.sdl_event_pump,
 
         // Game Loop
-        window,
+        window: sdl.window,
         input,
         renderer,
         frame,
@@ -168,8 +190,8 @@ impl<'a> Engine<'a> {
         }
     }
 
-    pub fn render(&mut self) {
-        self.renderer.render();
+    pub fn render(&mut self, gl: &GLContext) {
+        self.renderer.render(gl);
     }
 
     pub fn end_frame(&mut self) {
@@ -233,11 +255,4 @@ fn init_window(
     window.show();
 
     return window;
-}
-
-fn init_opengl(window: &sdl2::video::Window) -> sdl2::video::GLContext {
-    let gl_context = window.gl_create_context().unwrap();
-    window.gl_make_current(&gl_context).unwrap();
-    window.subsystem().gl_set_swap_interval(1).unwrap();
-    return gl_context;
 }

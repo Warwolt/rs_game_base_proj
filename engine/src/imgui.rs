@@ -1,3 +1,5 @@
+use sdl2::video::GLContext;
+
 use crate::{input::config::ProgramConfig, Engine};
 
 pub struct ImGui {
@@ -40,7 +42,7 @@ impl ImGui {
         }
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, _gl: &GLContext) {
         self.imgui_renderer.render(&mut self.imgui);
     }
 

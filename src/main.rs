@@ -1,7 +1,10 @@
 use engine::input::config::ProgramConfig;
-use sdl2::keyboard::Keycode;
 use std::path::PathBuf;
 
+mod hot_reload;
+
+/// This is a wrapper module around the `game` crate that allows the code in
+/// that crate to be hot-reloaded using hot_lib_reloader.
 #[hot_lib_reloader::hot_module(dylib = "game")]
 mod game {
     pub use game::GameState;
@@ -43,42 +46,13 @@ fn init_game() -> game::GameState {
     }
 }
 
-fn on_game_reloaded() {
-    unsafe {
-        log::info!("Game code hot-reloaded");
-        game::set_global_contexts(
-            log::logger(),
-            log::max_level(),
-            imgui::sys::igGetCurrentContext(),
-        );
-    }
-}
-
-fn rebuild_game_lib() {
-    log::info!("Rebuilding game code");
-    let _ = std::process::Command::new("cargo")
-        .args(["build", "-p", "game"])
-        .spawn()
-        .expect("failed to execute process");
-}
-
-fn handle_hot_reloading(engine: &engine::Engine) {
-    if cfg!(debug_assertions) {
-        if engine.input().keyboard.is_pressed_now(Keycode::F5) {
-            rebuild_game_lib();
-        }
-
-        if game::was_reloaded() {
-            on_game_reloaded();
-        }
-    }
-}
-
 fn main() {
     /* Initialize */
     init_logging();
     let mut config = init_config();
-    let mut engine = engine::init(&config, 800, 600);
+    let sdl = engine::init_sdl(&config, 800, 600);
+    let open_gl = engine::init_opengl(&sdl);
+    let mut engine = engine::init_engine(sdl, &open_gl);
     let mut imgui = engine::imgui::init(&mut engine, &config);
     let mut game = init_game();
 
@@ -90,14 +64,14 @@ fn main() {
         imgui.handle_input(&sdl_events);
 
         /* Update */
-        handle_hot_reloading(&engine);
+        hot_reload::update(&engine);
         game::update(&mut game, &mut engine, &mut imgui);
         engine.update();
 
         /* Render */
         game::render(&mut game, &mut engine.renderer());
-        engine.render();
-        imgui.render();
+        engine.render(&open_gl);
+        imgui.render(&open_gl);
 
         engine.end_frame();
     }

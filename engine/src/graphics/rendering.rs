@@ -8,6 +8,7 @@ use gl::types::*;
 use glam::Mat4;
 use image::GenericImageView;
 use itertools::Itertools;
+use sdl2::video::GLContext;
 use std::{
     collections::HashMap,
     ffi::{c_void, CString},
@@ -53,8 +54,8 @@ struct ShaderData {
 #[derive(Debug, Default)]
 pub struct Canvas {
     pub pos: glam::IVec2,
-    pub dim: Dimension,
-    pub scaled_dim: Dimension,
+    pub size: Dimension,
+    pub scaled_size: Dimension,
     pub scale: f32,
     fbo: u32,
     vao: u32,
@@ -140,6 +141,7 @@ const VERTEX_SHADER_SRC: &str = include_str!("shaders/vertex.shader");
 const FRAGMENT_SHADER_SRC: &str = include_str!("shaders/fragment.shader");
 
 pub fn load_texture_from_image_path(
+    gl: &GLContext,
     renderer: &mut Renderer,
     path: &Path,
 ) -> Result<TextureID, LoadError> {
@@ -151,7 +153,7 @@ pub fn load_texture_from_image_path(
         .pixels()
         .flat_map(|(_x, _y, pixel)| pixel.0)
         .collect::<Vec<u8>>();
-    let id = renderer.add_texture(&data, width, height);
+    let id = renderer.add_texture(gl, &data, width, height);
 
     Ok(id)
 }
@@ -224,7 +226,7 @@ fn gl_error_to_string(err: gl::types::GLenum) -> &'static str {
 }
 
 impl Renderer {
-    pub fn new(window_width: u32, window_height: u32) -> Self {
+    pub fn new(gl: &GLContext, window_width: u32, window_height: u32) -> Self {
         // Enable OpenGL debug logging
         unsafe {
             gl::Enable(gl::DEBUG_OUTPUT);
@@ -242,14 +244,14 @@ impl Renderer {
         Vertex::set_attribute_pointers(primitives_vao, primitives_vbo);
 
         // Setup default texture when drawing primitves
-        let white_texture = new_texture();
+        let white_texture = new_texture(gl);
         set_texture_image(white_texture, 1, 1, Some(&[255, 255, 255, 255]));
 
         // Setup drawing canvas (for fixed resolution rendering)
         let canvas_vao = new_vao();
         let canvas_vbo = new_vbo();
         let canvas_fbo = new_fbo();
-        let canvas_texture = new_texture();
+        let canvas_texture = new_texture(gl);
         set_texture_image(canvas_texture, window_width, window_height, None);
         set_framebuffer_texture(canvas_fbo, canvas_texture);
         set_vertex_data(
@@ -302,7 +304,7 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, _gl: &GLContext) {
         /* Update canvas */
         self.canvas
             .update(self.draw.window_width, self.draw.window_height);
@@ -313,15 +315,15 @@ impl Renderer {
             gl::BindFramebuffer(gl::FRAMEBUFFER, self.canvas.fbo);
             self.set_projection_matrix(
                 0.0,
-                self.canvas.dim.width as f32,
-                self.canvas.dim.height as f32,
+                self.canvas.size.width as f32,
+                self.canvas.size.height as f32,
                 0.0,
             );
             gl::Viewport(
                 0,
                 0,
-                self.canvas.dim.width as i32,
-                self.canvas.dim.height as i32,
+                self.canvas.size.width as i32,
+                self.canvas.size.height as i32,
             );
 
             // clear
@@ -355,8 +357,8 @@ impl Renderer {
             gl::Viewport(
                 self.canvas.pos.x,
                 self.canvas.pos.y,
-                self.canvas.scaled_dim.width as i32,
-                self.canvas.scaled_dim.height as i32,
+                self.canvas.scaled_size.width as i32,
+                self.canvas.scaled_size.height as i32,
             );
 
             // clear
@@ -377,8 +379,14 @@ impl Renderer {
         self.draw.window_height = height as f32;
     }
 
-    pub fn add_texture(&mut self, rgba_data: &[u8], width: u32, height: u32) -> TextureID {
-        let id = TextureID(new_texture());
+    pub fn add_texture(
+        &mut self,
+        gl: &GLContext,
+        rgba_data: &[u8],
+        width: u32,
+        height: u32,
+    ) -> TextureID {
+        let id = TextureID(new_texture(gl));
         self.shader
             .textures
             .insert(id, TextureData { width, height });
@@ -625,8 +633,8 @@ impl Renderer {
             resolution_height,
             None,
         );
-        self.canvas.dim.width = resolution_width;
-        self.canvas.dim.height = resolution_height;
+        self.canvas.size.width = resolution_width;
+        self.canvas.size.height = resolution_height;
     }
 
     fn set_color_key_uniform(&self, color_key: ColorRGBA) {
@@ -663,11 +671,11 @@ impl Canvas {
     ) -> Self {
         let mut canvas: Canvas = Default::default();
 
-        canvas.dim.width = canvas_width;
-        canvas.dim.height = canvas_height;
-        canvas.scale = Self::calculate_scale(window_width, window_height, canvas.dim);
-        canvas.scaled_dim = Self::calculate_scaled_dimensions(canvas.scale, canvas.dim);
-        canvas.pos = Self::calculate_position(window_width, window_height, canvas.scaled_dim);
+        canvas.size.width = canvas_width;
+        canvas.size.height = canvas_height;
+        canvas.scale = Self::calculate_scale(window_width, window_height, canvas.size);
+        canvas.scaled_size = Self::calculate_scaled_dimensions(canvas.scale, canvas.size);
+        canvas.pos = Self::calculate_position(window_width, window_height, canvas.scaled_size);
         canvas.fbo = fbo;
         canvas.vao = vao;
         canvas.texture = texture;
@@ -676,9 +684,9 @@ impl Canvas {
     }
 
     fn update(&mut self, window_width: f32, window_height: f32) {
-        self.scale = Self::calculate_scale(window_width, window_height, self.dim);
-        self.scaled_dim = Self::calculate_scaled_dimensions(self.scale, self.dim);
-        self.pos = Self::calculate_position(window_width, window_height, self.scaled_dim);
+        self.scale = Self::calculate_scale(window_width, window_height, self.size);
+        self.scaled_size = Self::calculate_scaled_dimensions(self.scale, self.size);
+        self.pos = Self::calculate_position(window_width, window_height, self.scaled_size);
     }
 
     fn calculate_scale(window_width: f32, window_height: f32, dim: Dimension) -> f32 {
@@ -959,7 +967,7 @@ fn new_fbo() -> u32 {
     fbo
 }
 
-fn new_texture() -> u32 {
+fn new_texture(_gl: &GLContext) -> u32 {
     let mut texture_id = 0;
     unsafe {
         gl::GenTextures(1, &mut texture_id);
