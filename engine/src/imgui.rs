@@ -9,7 +9,7 @@ pub struct ImGui {
     is_visible: bool,
 }
 
-pub fn init(engine: &Engine, config: &ProgramConfig) -> ImGui {
+pub fn init_imgui(engine: &Engine, config: &ProgramConfig) -> ImGui {
     let mut imgui = imgui::Context::create();
     let imgui_sdl = imgui_sdl2::ImguiSdl2::new(&mut imgui, &engine.window);
     let get_proc_address = |s| engine.sdl_video.gl_get_proc_address(s) as _;

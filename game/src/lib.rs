@@ -6,7 +6,7 @@ use ui::GameUi;
 
 pub struct GameState {
     ui: GameUi,
-    show_second_button: bool,
+    music_playing: bool,
 }
 
 /// Keep DLL global variables up to date with main globals
@@ -32,31 +32,27 @@ pub fn init(
     set_global_contexts(logger, level, ctx);
     GameState {
         ui: GameUi::new(),
-        show_second_button: false,
+        music_playing: false,
     }
 }
 
 #[no_mangle]
 pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
-    if engine.input().keyboard.is_pressed_now(Keycode::F3) {
+    if engine.input.keyboard.is_pressed_now(Keycode::F3) {
         imgui.toggle_visible();
     }
 
-    // TODO: need a better way to draw the button in center of screen
+    game.ui.draw_centered();
     game.ui.set_cursor(
-        (engine.renderer().canvas().size.width - ui::BUTTON_WIDTH) as i32 / 2,
-        (engine.renderer().canvas().size.height - ui::BUTTON_HEIGHT) as i32 / 2,
+        (engine.renderer.canvas().size.width / 2) as i32,
+        (engine.renderer.canvas().size.height / 2) as i32,
     );
 
-    // TODO: change this to "button1##press me!"
-    if game.ui.button("press me!") {
-        log::debug!("first button pressed");
-        game.show_second_button = !game.show_second_button;
-    }
-    if game.show_second_button {
-        if game.ui.button("press me as well!") {
-            log::debug!("second button pressed");
-        }
+    if game.ui.button(&format!(
+        "play##{}",
+        if game.music_playing { "Pause" } else { "Play" }
+    )) {
+        game.music_playing = !game.music_playing;
     }
 
     if let Some(debug_ui) = begin_imgui_frame(imgui, engine) {
@@ -67,20 +63,20 @@ pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
 }
 
 #[no_mangle]
-pub fn render(game: &mut GameState, renderer: &mut Renderer) {
-    // Draw background
-    {
-        renderer.clear();
-        renderer.set_draw_color(0, 129, 129, 255);
-        renderer.draw_rect_fill(Rect {
-            x: 0,
-            y: 0,
-            w: renderer.canvas().size.width,
-            h: renderer.canvas().size.height,
-        });
-    }
+pub fn render(game: &mut GameState, engine: &mut Engine) {
+    engine.renderer.clear();
+    draw_backround(&mut engine.renderer);
+    game.ui.render(engine);
+}
 
-    game.ui.render(renderer);
+fn draw_backround(renderer: &mut Renderer) {
+    renderer.set_draw_color(0, 129, 129, 255);
+    renderer.draw_rect_fill(Rect {
+        x: 0,
+        y: 0,
+        w: renderer.canvas().size.width,
+        h: renderer.canvas().size.height,
+    });
 }
 
 fn begin_imgui_frame<'a>(imgui: &'a mut ImGui, engine: &Engine<'a>) -> Option<&'a mut imgui::Ui> {

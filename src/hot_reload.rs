@@ -4,7 +4,7 @@ use crate::game;
 
 pub fn update(engine: &engine::Engine) {
     if cfg!(debug_assertions) {
-        if engine.input().keyboard.is_pressed_now(Keycode::F5) {
+        if engine.input.keyboard.is_pressed_now(Keycode::F5) {
             rebuild_game_lib();
         }
 

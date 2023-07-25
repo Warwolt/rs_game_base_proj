@@ -10,19 +10,20 @@ pub mod imgui;
 pub mod input;
 
 use crate::input::config::ProgramConfig;
+use graphics::fonts::FontID;
 use sdl2::{keyboard::Keycode, video::GLContext};
 
 use crate::{
     audio::AudioSystem,
     graphics::{
-        animation::AnimationSystem, fonts::FontSystem, fullscreen::FullscreenSystem,
+        animation::AnimationSystem, fonts::TextSystem, fullscreen::FullscreenSystem,
         rendering::Renderer, sprites::SpriteSystem,
     },
     input::InputDevices,
 };
 use itertools::Itertools;
 use sdl2::video::GLProfile;
-use std::time::SystemTime;
+use std::{path::PathBuf, time::SystemTime};
 
 pub struct Engine<'a> {
     // SDL
@@ -33,10 +34,10 @@ pub struct Engine<'a> {
     sdl_event_pump: sdl2::EventPump,
 
     // Game Loop
-    window: sdl2::video::Window,
-    input: InputDevices,
-    renderer: Renderer,
-    frame: FrameTime,
+    pub window: sdl2::video::Window,
+    pub input: InputDevices,
+    pub renderer: Renderer,
+    pub frame: FrameTime,
     should_quit: bool,
 
     // Systems
@@ -44,7 +45,10 @@ pub struct Engine<'a> {
     _audio_system: AudioSystem<'a>,
     _sprite_system: SpriteSystem,
     _animation_system: AnimationSystem,
-    _font_system: FontSystem,
+    pub text_system: TextSystem,
+
+    // Assets
+    pub fonts: LoadedFonts,
 }
 
 pub struct SdlContext {
@@ -59,6 +63,10 @@ pub struct SdlContext {
 pub struct FrameTime {
     pub delta_ms: u128,
     prev_time: SystemTime,
+}
+
+pub struct LoadedFonts {
+    pub arial_16: FontID,
 }
 
 pub fn init_sdl(config: &ProgramConfig, window_width: u32, window_height: u32) -> SdlContext {
@@ -99,7 +107,7 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
     // Game Loop
     let (window_width, window_height) = sdl.window.size();
     let input = InputDevices::new();
-    let renderer = Renderer::new(gl, window_width, window_height);
+    let mut renderer = Renderer::new(gl, window_width, window_height);
     let frame = FrameTime {
         delta_ms: 0,
         prev_time: SystemTime::now(),
@@ -111,7 +119,17 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
     let audio_system = AudioSystem::new();
     let sprite_system = SpriteSystem::new();
     let animation_system = AnimationSystem::new();
-    let font_system = FontSystem::new();
+    let mut text_system = TextSystem::new();
+
+    // Assets
+    let arial_16 = text_system.load_font(
+        gl,
+        &mut renderer,
+        &PathBuf::from("./resources/font/arial.ttf"),
+        16,
+    );
+
+    let fonts = LoadedFonts { arial_16 };
 
     Engine {
         // SDL
@@ -133,7 +151,10 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
         _audio_system: audio_system,
         _sprite_system: sprite_system,
         _animation_system: animation_system,
-        _font_system: font_system,
+        text_system: text_system,
+
+        // Assets
+        fonts,
     }
 }
 
@@ -146,14 +167,6 @@ impl<'a> Engine<'a> {
             .as_millis();
         self.frame.prev_time = time_now;
         self.sdl_event_pump.poll_iter().collect_vec()
-    }
-
-    pub fn input(&self) -> &InputDevices {
-        &self.input
-    }
-
-    pub fn renderer(&mut self) -> &mut Renderer {
-        &mut self.renderer
     }
 
     pub fn should_quit(&self) -> bool {
@@ -194,7 +207,7 @@ impl<'a> Engine<'a> {
         self.renderer.render(gl);
     }
 
-    pub fn end_frame(&mut self) {
+    pub fn end_frame(&mut self, _gl: &GLContext) {
         self.window.gl_swap_window();
     }
 }

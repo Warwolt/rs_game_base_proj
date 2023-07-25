@@ -7,7 +7,7 @@ use crate::geometry::Rect;
 
 use super::rendering::{Renderer, TextureID};
 
-pub struct FontSystem {
+pub struct TextSystem {
     library: freetype::Library,
     fonts: HashMap<FontID, HashMap<char, GlyphData>>,
     next_id: u32,
@@ -29,9 +29,9 @@ struct GlyphData {
     advance: u32,
 }
 
-impl FontSystem {
+impl TextSystem {
     pub fn new() -> Self {
-        FontSystem {
+        TextSystem {
             library: freetype::Library::init().unwrap(),
             fonts: HashMap::new(),
             next_id: 0,
@@ -41,7 +41,7 @@ impl FontSystem {
         }
     }
 
-    pub fn add_font(
+    pub fn load_font(
         &mut self,
         gl: &GLContext,
         renderer: &mut Renderer,

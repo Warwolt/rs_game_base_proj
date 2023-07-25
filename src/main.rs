@@ -1,4 +1,4 @@
-use engine::input::config::ProgramConfig;
+use engine::{imgui::ImGui, input::config::ProgramConfig};
 use std::path::PathBuf;
 
 mod hot_reload;
@@ -46,15 +46,22 @@ fn init_game() -> game::GameState {
     }
 }
 
+fn serialize_config(mut config: ProgramConfig, imgui: &ImGui) {
+    config.show_dev_ui = imgui.is_visible();
+    config.write_to_disk();
+}
+
 fn main() {
     /* Initialize */
     init_logging();
-    let mut config = init_config();
+    let config = init_config();
     let sdl = engine::init_sdl(&config, 800, 600);
     let open_gl = engine::init_opengl(&sdl);
     let mut engine = engine::init_engine(sdl, &open_gl);
-    let mut imgui = engine::imgui::init(&mut engine, &config);
+    let mut imgui = engine::imgui::init_imgui(&mut engine, &config);
     let mut game = init_game();
+
+    engine.renderer.set_resolution(400, 300);
 
     /* Main loop */
     while !engine.should_quit() {
@@ -69,13 +76,12 @@ fn main() {
         engine.update();
 
         /* Render */
-        game::render(&mut game, &mut engine.renderer());
+        game::render(&mut game, &mut engine);
         engine.render(&open_gl);
         imgui.render(&open_gl);
 
-        engine.end_frame();
+        engine.end_frame(&open_gl);
     }
 
-    config.show_dev_ui = imgui.is_visible();
-    config.write_to_disk();
+    serialize_config(config, &imgui);
 }
