@@ -10,7 +10,10 @@ pub mod imgui;
 pub mod input;
 
 use crate::input::config::ProgramConfig;
-use graphics::fonts::FontID;
+use graphics::{
+    fonts::FontID,
+    rendering::{self, TextureID},
+};
 use sdl2::{keyboard::Keycode, video::GLContext};
 
 use crate::{
@@ -23,7 +26,7 @@ use crate::{
 };
 use itertools::Itertools;
 use sdl2::video::GLProfile;
-use std::{path::PathBuf, time::SystemTime};
+use std::{collections::HashMap, path::PathBuf, time::SystemTime};
 
 pub struct Engine<'a> {
     // SDL
@@ -42,13 +45,14 @@ pub struct Engine<'a> {
 
     // Systems
     pub fullscreen_system: FullscreenSystem,
-    pub audio_system: AudioSystem<'a>,
-    _sprite_system: SpriteSystem,
+    pub audio: AudioSystem<'a>,
+    pub sprites: SpriteSystem,
     _animation_system: AnimationSystem,
-    pub text_system: TextSystem,
+    pub text: TextSystem,
 
     // Assets
     pub fonts: LoadedFonts,
+    pub textures: HashMap<String, TextureID>,
 }
 
 pub struct SdlContext {
@@ -121,7 +125,7 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
 
     // Systems
     let fullscreen_system = FullscreenSystem::new();
-    let audio_system = AudioSystem::new();
+    let audio = AudioSystem::new();
     let sprite_system = SpriteSystem::new();
     let animation_system = AnimationSystem::new();
     let mut text_system = TextSystem::new();
@@ -133,8 +137,17 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
         &PathBuf::from("./resources/font/arial.ttf"),
         16,
     );
-
     let fonts = LoadedFonts { arial_16 };
+
+    let mut textures = HashMap::new();
+    let smiley_image_path = r"resources/smiley.png".to_owned();
+    let smiley_texture_id = rendering::load_texture_from_image_path(
+        gl,
+        &mut renderer,
+        &PathBuf::from(&smiley_image_path),
+    )
+    .unwrap();
+    textures.insert(smiley_image_path, smiley_texture_id);
 
     Engine {
         // SDL
@@ -153,13 +166,14 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
 
         // Systems
         fullscreen_system,
-        audio_system,
-        _sprite_system: sprite_system,
+        audio,
+        sprites: sprite_system,
         _animation_system: animation_system,
-        text_system: text_system,
+        text: text_system,
 
         // Assets
         fonts,
+        textures,
     }
 }
 

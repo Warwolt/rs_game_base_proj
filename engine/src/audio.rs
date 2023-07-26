@@ -29,7 +29,8 @@ impl<'a> AudioSystem<'a> {
     #[allow(dead_code)]
     pub fn add_sound(&mut self, path: &Path) -> SoundID {
         let id = self.generate_sound_id();
-        let chunk = sdl2::mixer::Chunk::from_file(path).unwrap();
+        let mut chunk = sdl2::mixer::Chunk::from_file(path).unwrap();
+        chunk.set_volume(128 / 2);
         self.sounds.insert(id, chunk);
         id
     }

@@ -1,12 +1,23 @@
 mod ui;
 
-use engine::{geometry::Rect, graphics::rendering::Renderer, imgui::ImGui, Engine};
+use std::path::PathBuf;
+
+use engine::{
+    geometry::Rect,
+    graphics::{
+        rendering::Renderer,
+        sprites::{self, SpriteSheetID},
+    },
+    imgui::ImGui,
+    Engine,
+};
 use sdl2::keyboard::Keycode;
 use ui::GameUi;
 
 pub struct GameState {
     ui: GameUi,
     music_playing: bool,
+    smiley_sprite_sheet_id: SpriteSheetID,
 }
 
 /// Keep DLL global variables up to date with main globals
@@ -31,9 +42,22 @@ pub fn init(
     engine: &mut Engine,
 ) -> GameState {
     set_global_contexts(logger, level, ctx);
+
+    // Init smiley
+    let smiley_json_path = &PathBuf::from(r"resources/smiley.json");
+    let smiley_texture_id = *engine.textures.get("resources/smiley.png").unwrap();
+    let smiley_sprite_sheet_data = sprites::load_aseprite_sprite_sheet(&smiley_json_path).unwrap();
+    let smiley_sprite_sheet_frames =
+        sprites::aseprite_sprite_sheet_frames(&smiley_sprite_sheet_data);
+    let smiley_sprite_sheet_id =
+        engine
+            .sprites
+            .add_spritesheet(smiley_texture_id, &smiley_sprite_sheet_frames, None);
+
     GameState {
         ui: GameUi::new(engine),
         music_playing: false,
+        smiley_sprite_sheet_id,
     }
 }
 
@@ -66,6 +90,23 @@ pub fn render(game: &mut GameState, engine: &mut Engine) {
     engine.renderer.clear();
     draw_backround(&mut engine.renderer);
     game.ui.render(engine);
+
+    // draw smiley
+    {
+        let canvas = engine.renderer.canvas().size;
+        let (smiley_width, smiley_height) = (16, 16);
+        let (smiley_x, smiley_y) = (
+            (canvas.width - smiley_width) / 2,
+            (canvas.height - smiley_height) / 2 - (canvas.height as f32 * 0.1) as u32,
+        );
+        engine.sprites.draw_sprite(
+            &mut engine.renderer,
+            game.smiley_sprite_sheet_id,
+            0,
+            smiley_x as _,
+            smiley_y as _,
+        );
+    }
 }
 
 fn draw_backround(renderer: &mut Renderer) {

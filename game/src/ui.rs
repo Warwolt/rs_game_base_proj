@@ -58,7 +58,7 @@ impl GameUi {
             cursor_alignment: CursorAlignment::TopLeft,
             buttons: HashMap::new(),
             click_sound: engine
-                .audio_system
+                .audio
                 .add_sound(&PathBuf::from("./resources/audio/click.wav")),
         }
     }
@@ -102,7 +102,7 @@ impl GameUi {
             button.was_pressed = button.is_pressed;
             if mouse_intersects_button && engine.input.mouse.left_button.is_pressed_now() {
                 button.is_pressed = true;
-                engine.audio_system.play_sound(self.click_sound);
+                engine.audio.play_sound(self.click_sound);
             }
             if !mouse_intersects_button || engine.input.mouse.left_button.is_released() {
                 button.is_pressed = false;
@@ -190,12 +190,12 @@ fn draw_button(engine: &mut Engine, button: &Button) {
 
     // draw text
     if !button.text.is_empty() {
-        engine.text_system.set_text_color(0, 0, 0, 255);
+        engine.text.set_text_color(0, 0, 0, 255);
         let offset = if draw_pressed { 1 } else { 0 };
-        let (text_width, text_height) = engine.text_system.text_dimensions(engine.fonts.arial_16, &button.text);
+        let (text_width, text_height) = engine.text.text_dimensions(engine.fonts.arial_16, &button.text);
         let text_x = rect.x + (BUTTON_WIDTH as i32 - text_width as i32) / 2 + offset;
         let text_y = rect.y + (BUTTON_HEIGHT as i32 - text_height as i32) / 2 + offset;
-        engine.text_system.draw_text(renderer, engine.fonts.arial_16, text_x, text_y, &button.text);
+        engine.text.draw_text(renderer, engine.fonts.arial_16, text_x, text_y, &button.text);
     }
 }
 
