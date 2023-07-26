@@ -3,6 +3,8 @@ use std::path::PathBuf;
 
 mod hot_reload;
 
+const WINDOW_TITLE: &str = "Game";
+
 /// This is a wrapper module around the `game` crate that allows the code in
 /// that crate to be hot-reloaded using hot_lib_reloader.
 #[hot_lib_reloader::hot_module(dylib = "game")]
@@ -56,7 +58,7 @@ fn main() {
     /* Initialize */
     init_logging();
     let config = init_config();
-    let sdl = engine::init_sdl(&config, 800, 600);
+    let sdl = engine::init_sdl(&config, WINDOW_TITLE, 800, 600);
     let open_gl = engine::init_opengl(&sdl);
     let mut engine = engine::init_engine(sdl, &open_gl);
     let mut imgui = engine::imgui::init_imgui(&mut engine, &config);
@@ -72,7 +74,7 @@ fn main() {
         imgui.handle_input(&sdl_events);
 
         /* Update */
-        hot_reload::update(&engine);
+        hot_reload::update(&mut engine);
         game::update(&mut game, &mut engine, &mut imgui);
         engine.update();
 

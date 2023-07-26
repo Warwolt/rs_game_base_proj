@@ -69,7 +69,12 @@ pub struct LoadedFonts {
     pub arial_16: FontID,
 }
 
-pub fn init_sdl(config: &ProgramConfig, window_width: u32, window_height: u32) -> SdlContext {
+pub fn init_sdl(
+    config: &ProgramConfig,
+    window_title: &str,
+    window_width: u32,
+    window_height: u32,
+) -> SdlContext {
     let sdl = sdl2::init().unwrap();
     let sdl_video = init_video(&sdl);
     let sdl_audio = init_audio(&sdl);
@@ -77,7 +82,7 @@ pub fn init_sdl(config: &ProgramConfig, window_width: u32, window_height: u32) -
     let sdl_event_pump = sdl.event_pump().unwrap();
     let window = init_window(
         &sdl_video,
-        "Game",
+        window_title,
         window_width,
         window_height,
         config.monitor as i32,
