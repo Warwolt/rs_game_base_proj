@@ -1,4 +1,4 @@
-use engine::{imgui::ImGui, input::config::ProgramConfig};
+use engine::{imgui::ImGui, input::config::ProgramConfig, Engine};
 use std::path::PathBuf;
 
 mod hot_reload;
@@ -36,12 +36,13 @@ fn init_config() -> ProgramConfig {
     config
 }
 
-fn init_game() -> game::GameState {
+fn init_game(engine: &mut Engine) -> game::GameState {
     unsafe {
         game::init(
             log::logger(),
             log::max_level(),
             imgui::sys::igGetCurrentContext(),
+            engine,
         )
     }
 }
@@ -59,7 +60,7 @@ fn main() {
     let open_gl = engine::init_opengl(&sdl);
     let mut engine = engine::init_engine(sdl, &open_gl);
     let mut imgui = engine::imgui::init_imgui(&mut engine, &config);
-    let mut game = init_game();
+    let mut game = init_game(&mut engine);
 
     engine.renderer.set_resolution(400, 300);
 

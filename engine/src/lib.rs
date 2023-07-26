@@ -42,7 +42,7 @@ pub struct Engine<'a> {
 
     // Systems
     pub fullscreen_system: FullscreenSystem,
-    _audio_system: AudioSystem<'a>,
+    pub audio_system: AudioSystem<'a>,
     _sprite_system: SpriteSystem,
     _animation_system: AnimationSystem,
     pub text_system: TextSystem,
@@ -148,7 +148,7 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
 
         // Systems
         fullscreen_system,
-        _audio_system: audio_system,
+        audio_system,
         _sprite_system: sprite_system,
         _animation_system: animation_system,
         text_system: text_system,

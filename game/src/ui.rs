@@ -1,6 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use engine::{
+    audio::SoundID,
     geometry::{intersection::point_is_inside_rect, point, Point, Rect},
     input::{self, button::ButtonEvent},
     Engine,
@@ -10,6 +11,7 @@ pub struct GameUi {
     cursor: Point,
     cursor_alignment: CursorAlignment,
     buttons: HashMap<String, Button>,
+    click_sound: SoundID,
 }
 
 #[derive(Debug)]
@@ -49,11 +51,14 @@ impl Button {
 }
 
 impl GameUi {
-    pub fn new() -> Self {
+    pub fn new(engine: &mut Engine) -> Self {
         GameUi {
             cursor: point(0, 0),
             cursor_alignment: CursorAlignment::TopLeft,
             buttons: HashMap::new(),
+            click_sound: engine
+                .audio_system
+                .add_sound(&PathBuf::from("./resources/audio/click.wav")),
         }
     }
 
@@ -77,14 +82,17 @@ impl GameUi {
         self.cursor += point(0, (BUTTON_HEIGHT + SPACING) as i32);
         button.is_hot = true;
         button.text = text.unwrap_or(id).to_owned();
+
         button.state.is_released_now() && button.is_hovered
     }
 
     pub fn update(&mut self, engine: &Engine) {
         for (_, button) in &mut self.buttons {
+            // TODO: this should check that the mouse button is NOT clicked when
+            // entering into button rect, and then check that it is released
+            // inside the rect to consider button to have been pressed
             let mouse_hovers_button = point_is_inside_rect(engine.input.mouse.pos, button.rect);
             let mouse_pressed = engine.input.mouse.left_button.is_pressed();
-
             let event = if mouse_hovers_button && mouse_pressed {
                 ButtonEvent::Down
             } else {
@@ -93,6 +101,10 @@ impl GameUi {
             button.state.register_event(event);
             button.is_hovered = mouse_hovers_button;
             button.state.update();
+
+            if mouse_hovers_button && engine.input.mouse.left_button.is_pressed_now() {
+                engine.audio_system.play_sound(self.click_sound);
+            }
         }
     }
 

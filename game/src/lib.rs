@@ -28,10 +28,11 @@ pub fn init(
     logger: &'static dyn log::Log,
     level: log::LevelFilter,
     ctx: *mut imgui::sys::ImGuiContext,
+    engine: &mut Engine,
 ) -> GameState {
     set_global_contexts(logger, level, ctx);
     GameState {
-        ui: GameUi::new(),
+        ui: GameUi::new(engine),
         music_playing: false,
     }
 }
@@ -48,10 +49,8 @@ pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
         (engine.renderer.canvas().size.height / 2) as i32,
     );
 
-    if game.ui.button(&format!(
-        "play##{}",
-        if game.music_playing { "Pause" } else { "Play" }
-    )) {
+    let play_label = if game.music_playing { "Pause" } else { "Play" };
+    if game.ui.button(play_label) {
         game.music_playing = !game.music_playing;
     }
 
