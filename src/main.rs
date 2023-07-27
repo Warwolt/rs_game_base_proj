@@ -63,6 +63,7 @@ fn main() {
     let mut engine = engine::init_engine(sdl, &open_gl);
     let mut imgui = engine::imgui::init_imgui(&mut engine, &config);
     let mut game = init_game(&mut engine);
+    let mut hot_reloader = hot_reload::HotReloader::new();
 
     engine.renderer.set_resolution(400, 300);
 
@@ -74,7 +75,7 @@ fn main() {
         imgui.handle_input(&sdl_events);
 
         /* Update */
-        hot_reload::update(&mut engine);
+        hot_reloader.update(&mut engine);
         game::update(&mut game, &mut engine, &mut imgui);
         engine.update();
 
