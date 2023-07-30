@@ -15,9 +15,9 @@ struct AnimationData {
     pub to: usize,
     pub is_playing: bool,
     pub current_frame: usize,
-    pub playback_pos_ms: u32,
-    pub frame_times_ms: Vec<u32>,
-    pub total_length_ms: u32,
+    pub playback_pos_ms: u128,
+    pub frame_times_ms: Vec<u128>,
+    pub total_length_ms: u128,
 }
 
 impl AnimationSystem {
@@ -32,7 +32,7 @@ impl AnimationSystem {
         &mut self,
         from: usize,
         to: usize,
-        frame_periods_ms: &[u32],
+        frame_periods_ms: &[u128],
     ) -> AnimationID {
         let id = AnimationID(self.next_id);
         self.next_id += 1;
@@ -66,7 +66,7 @@ impl AnimationSystem {
         id: AnimationID,
         from: usize,
         to: usize,
-        frame_periods_ms: &[u32],
+        frame_periods_ms: &[u128],
     ) {
         let mut total_length_ms = 0;
         let mut frame_times_ms = Vec::new();
@@ -128,7 +128,7 @@ impl AnimationSystem {
         }
     }
 
-    pub fn update(&mut self, delta_time_ms: u32) {
+    pub fn update(&mut self, delta_time_ms: u128) {
         for (_, animation) in &mut self.animations {
             if !animation.is_playing {
                 continue;
@@ -161,8 +161,8 @@ pub fn add_asperite_sprite_sheet_animation(
     let to = frame_tag.to as usize;
     let frame_periods_ms = sprite_sheet.frames[from..=to]
         .iter()
-        .map(|frame| frame.duration)
-        .collect::<Vec<u32>>();
+        .map(|frame| frame.duration as u128)
+        .collect::<Vec<u128>>();
 
     animation_system.add_animation(from, to, &frame_periods_ms)
 }
@@ -178,8 +178,8 @@ pub fn reload_aseperite_sprite_sheet_animation(
     let to = frame_tag.to as usize;
     let frame_periods_ms = sprite_sheet.frames[from..=to]
         .iter()
-        .map(|frame| frame.duration)
-        .collect::<Vec<u32>>();
+        .map(|frame| frame.duration as u128)
+        .collect::<Vec<u128>>();
 
     animation_system.reload_animation(id, from, to, &frame_periods_ms);
 }

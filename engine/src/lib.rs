@@ -47,7 +47,7 @@ pub struct Engine<'a> {
     pub fullscreen_system: FullscreenSystem,
     pub audio: AudioSystem<'a>,
     pub sprites: SpriteSystem,
-    _animation_system: AnimationSystem,
+    pub animation: AnimationSystem,
     pub text: TextSystem,
 
     // Assets
@@ -168,7 +168,7 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
         fullscreen_system,
         audio,
         sprites: sprite_system,
-        _animation_system: animation_system,
+        animation: animation_system,
         text: text_system,
 
         // Assets
@@ -220,6 +220,8 @@ impl<'a> Engine<'a> {
         if self.input.keyboard.is_pressed_now(Keycode::Escape) || self.input.quit {
             self.should_quit = true;
         }
+
+        self.animation.update(self.frame.delta_ms);
     }
 
     pub fn render(&mut self, gl: &GLContext) {
