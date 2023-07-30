@@ -3,6 +3,7 @@ mod ui;
 use std::{collections::HashMap, path::PathBuf};
 
 use engine::{
+    audio::MusicID,
     geometry::Rect,
     graphics::{
         animation::{self, AnimationID},
@@ -18,6 +19,7 @@ use ui::GameUi;
 pub struct GameState {
     ui: GameUi,
     music_playing: bool,
+    music_id: MusicID,
     smiley_sprite_sheet_id: SpriteSheetID,
     smiley_animations: HashMap<Direction, AnimationID>,
     smiley_direction: Direction,
@@ -97,9 +99,14 @@ pub fn init(
             .start_animation(smiley_animations[&smiley_direction]);
     }
 
+    let music_id = engine
+        .audio
+        .add_music(&PathBuf::from("./resources/audio/music.wav"));
+
     GameState {
         ui: GameUi::new(engine),
         music_playing: false,
+        music_id,
         smiley_sprite_sheet_id,
         smiley_animations,
         smiley_direction,
@@ -132,7 +139,6 @@ pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
 
     let play_label = if game.music_playing { "Pause" } else { "Play" };
     if game.ui.button(play_label) {
-        game.music_playing = !game.music_playing;
         game.smiley_is_animating = !game.smiley_is_animating;
 
         let animation_id = game.smiley_animations[&game.smiley_direction];
@@ -140,6 +146,17 @@ pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
             engine.animation.start_animation(animation_id);
         } else {
             engine.animation.stop_animation(animation_id);
+        }
+
+        if engine.audio.music_is_paused() {
+            engine.audio.resume_music();
+        } else {
+            engine.audio.pause_music();
+        }
+
+        if !game.music_playing {
+            game.music_playing = true;
+            engine.audio.play_music(game.music_id);
         }
     }
 
