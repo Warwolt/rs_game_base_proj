@@ -137,7 +137,11 @@ pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
         }
     }
 
-    let play_label = if game.music_playing { "Pause" } else { "Play" };
+    let play_label = if engine.audio.music_is_paused() || !game.music_playing {
+        "Play"
+    } else {
+        "Pause"
+    };
     if game.ui.button(play_label) {
         game.smiley_is_animating = !game.smiley_is_animating;
 
