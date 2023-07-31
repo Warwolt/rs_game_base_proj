@@ -13,6 +13,7 @@ enum CommandStatus {
     Idle,
     Running,
     Done,
+    Failed,
 }
 
 pub struct HotReloader {
@@ -51,6 +52,12 @@ impl HotReloader {
                     let _ = engine.window.set_title(WINDOW_TITLE);
                     self.build_cmd_invocation = None;
                 }
+                CommandStatus::Failed => {
+                    let _ = engine
+                        .window
+                        .set_title(&format!("{} (!!! build errors !!!)", WINDOW_TITLE));
+                    self.build_cmd_invocation = None;
+                }
             }
         }
     }
@@ -60,13 +67,13 @@ impl HotReloader {
         self.animation_time_ms %= 4 * ANIMATION_PERIOD;
 
         let title_suffix = if self.animation_time_ms < ANIMATION_PERIOD {
-            "(reloading...)"
+            "(building...)"
         } else if self.animation_time_ms < 2 * ANIMATION_PERIOD {
-            "(reloading   )"
+            "(building   )"
         } else if self.animation_time_ms < 3 * ANIMATION_PERIOD {
-            "(reloading.  )"
+            "(building.  )"
         } else {
-            "(reloading.. )"
+            "(building.. )"
         };
 
         let _ = engine
@@ -83,8 +90,12 @@ impl HotReloader {
 
     fn command_status(&mut self) -> CommandStatus {
         if let Some(invocation) = &mut self.build_cmd_invocation {
-            if invocation.try_wait().unwrap().is_some() {
-                CommandStatus::Done
+            if let Some(status) = invocation.try_wait().unwrap() {
+                if status.success() {
+                    CommandStatus::Done
+                } else {
+                    CommandStatus::Failed
+                }
             } else {
                 CommandStatus::Running
             }

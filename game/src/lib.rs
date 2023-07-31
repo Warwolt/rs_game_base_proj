@@ -10,7 +10,9 @@ use engine::{
         rendering::Renderer,
         sprites::{self, SpriteSheetID},
     },
+    imgui::dock,
     imgui::ImGui,
+    input::config::ProgramConfig,
     Engine,
 };
 use sdl2::keyboard::Keycode;
@@ -18,6 +20,10 @@ use ui::GameUi;
 
 pub struct GameState {
     ui: GameUi,
+    show_editor_ui: bool,
+    show_debug_ui: bool,
+    editor_layout_init: bool,
+    editor_zoom_amount: u8,
     music_playing: bool,
     music_id: MusicID,
     smiley_sprite_sheet_id: SpriteSheetID,
@@ -55,6 +61,7 @@ pub fn init(
     level: log::LevelFilter,
     ctx: *mut imgui::sys::ImGuiContext,
     engine: &mut Engine,
+    config: &ProgramConfig,
 ) -> GameState {
     set_global_contexts(logger, level, ctx);
 
@@ -105,6 +112,10 @@ pub fn init(
 
     GameState {
         ui: GameUi::new(engine),
+        show_debug_ui: config.show_debug_ui,
+        show_editor_ui: true,
+        editor_layout_init: false,
+        editor_zoom_amount: 2,
         music_playing: false,
         music_id,
         smiley_sprite_sheet_id,
@@ -118,7 +129,14 @@ pub fn init(
 #[no_mangle]
 pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
     if engine.input.keyboard.is_pressed_now(Keycode::F3) {
-        imgui.toggle_visible();
+        game.show_debug_ui = !game.show_debug_ui;
+    }
+    if engine.input.keyboard.is_pressed_now(Keycode::F2) {
+        game.show_editor_ui = !game.show_editor_ui;
+    }
+
+    if engine.input.keyboard.is_pressed(Keycode::Escape) {
+        engine.request_quit();
     }
 
     game.ui.draw_centered();
@@ -164,8 +182,13 @@ pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
         }
     }
 
-    if let Some(debug_ui) = begin_imgui_frame(imgui, engine) {
-        draw_debug_ui(debug_ui);
+    if let Some(ui) = begin_imgui_frame(imgui, engine) {
+        if game.show_editor_ui {
+            draw_editor_ui(game, engine, ui);
+        }
+        if game.show_debug_ui {
+            debug::draw_debug_ui(ui);
+        }
     }
 
     game.ui.update(engine);
@@ -174,7 +197,7 @@ pub fn update(game: &mut GameState, engine: &mut Engine, imgui: &mut ImGui) {
 #[no_mangle]
 pub fn render(game: &mut GameState, engine: &mut Engine) {
     engine.renderer.clear();
-    draw_backround(&mut engine.renderer);
+    draw_background(&mut engine.renderer);
     game.ui.render(engine);
 
     // draw smiley
@@ -198,8 +221,13 @@ pub fn render(game: &mut GameState, engine: &mut Engine) {
     }
 }
 
-fn draw_backround(renderer: &mut Renderer) {
-    renderer.set_draw_color(0, 129, 129, 255);
+#[no_mangle]
+pub fn write_to_config(config: &mut ProgramConfig, game: &GameState) {
+    config.show_debug_ui = game.show_debug_ui;
+}
+
+fn draw_background(renderer: &mut Renderer) {
+    renderer.set_draw_color(0, 128, 128, 255);
     renderer.draw_rect_fill(Rect {
         x: 0,
         y: 0,
@@ -209,22 +237,105 @@ fn draw_backround(renderer: &mut Renderer) {
 }
 
 fn begin_imgui_frame<'a>(imgui: &'a mut ImGui, engine: &Engine<'a>) -> Option<&'a mut imgui::Ui> {
+    // The ImGui context can be momentarily lost when reloading the game DLL
     let context_exists = unsafe { imgui::sys::igGetCurrentContext() != std::ptr::null_mut() };
     if context_exists {
-        let imgui_is_visible = imgui.is_visible();
-        let ui = imgui.begin_frame(engine);
-        if imgui_is_visible {
-            return Some(ui);
-        }
+        Some(imgui.begin_frame(engine))
+    } else {
+        None
     }
-    None
 }
 
-fn draw_debug_ui(ui: &mut imgui::Ui) {
-    if let Some(window) = ui.window("Debug Window").begin() {
-        if ui.button("Press me!") {
-            log::debug!("hello world!");
+fn draw_editor_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
+    let _dockspace = dock::dockspace("DockSpace", ui, &mut game.editor_layout_init)
+        .split_node("Right", imgui::Direction::Right, 0.25)
+        .split_node("Bottom", imgui::Direction::Down, 0.25)
+        .dock_window("SceneView", "DockSpace")
+        .dock_window("Log", "Bottom")
+        .dock_window("SceneEditor", "Right")
+        .begin();
+
+    let menu_bar_padding = ui.push_style_var(imgui::StyleVar::FramePadding([0.0, 8.0]));
+    if let Some(_menu_bar) = ui.begin_main_menu_bar() {
+        menu_bar_padding.end();
+        if let Some(_file_menu) = ui.begin_menu("File") {
+            if ui.menu_item("Exit") {
+                engine.request_quit();
+            }
         }
-        window.end();
+    }
+
+    if let Some(_window) = ui.window("Log").begin() {
+        ui.text(format!(
+            "window relative mouse {:?}",
+            engine.input.mouse.window_pos
+        ));
+        ui.text(format!(
+            "canvas relative mouse {:?}",
+            engine.input.mouse.pos
+        ));
+    }
+
+    if let Some(_window) = ui.window("SceneEditor").begin() {
+        ui.text("Zoom:");
+        ui.radio_button("1x", &mut game.editor_zoom_amount, 1);
+        ui.radio_button("2x", &mut game.editor_zoom_amount, 2);
+        ui.radio_button("3x", &mut game.editor_zoom_amount, 3);
+        ui.radio_button("4x", &mut game.editor_zoom_amount, 4);
+    }
+
+    // FIXME-1: Need to figure out how to keep the canvas position up to date
+    // relative to a scrolled position internally in the window.
+    //
+    // FIXME-2: Probably we should only be setting up the layout if the ini file
+    // doesn't exist? or something. It would be nice to be able to keep the
+    // layout used when closing the program.
+    if let Some(_window) = ui.window("SceneView").horizontal_scrollbar(true).begin() {
+        let _canvas_window = ui.child_window("Canvas").begin();
+        let window_size = ui.window_size();
+        let window_pos = ui.window_pos();
+        let canvas_texture = engine.renderer.canvas().texture as usize;
+
+        // FIXME: the canvas should be kept up to date in another function
+        // probably? Doing it raw like this seems super error prone, need a
+        // better abstraction for reifying the idea of a "canvas".
+
+        // setup canvas size here
+        let scale = game.editor_zoom_amount as f32;
+        let image_size = [
+            scale * engine.renderer.canvas().size.width as f32,
+            scale * engine.renderer.canvas().size.height as f32,
+        ];
+        let image_pos = [
+            f32::round(window_pos[0] + (window_size[0] - image_size[0]) * 0.5),
+            f32::round(window_pos[1] + (window_size[1] - image_size[1]) * 0.5),
+        ];
+
+        // need to keep canvas size and pos up to date for mouse to work
+        let canvas = engine.renderer.canvas_mut();
+        canvas.scale = scale;
+        canvas.pos.x = image_pos[0] as i32;
+        canvas.pos.y = image_pos[1] as i32;
+        canvas.scaled_size.width = image_size[0] as u32;
+        canvas.scaled_size.height = image_size[1] as u32;
+
+        // FIXME: this somehow completely messes up scrolling, but centering the
+        // image is required in order to make the canvas view look nice
+        ui.set_cursor_screen_pos(image_pos);
+        let _ = imgui::Image::new(imgui::TextureId::new(canvas_texture), image_size)
+            .uv0([0.0, 1.0])
+            .uv1([1.0, 0.0])
+            .build(&ui);
+    }
+}
+
+mod debug {
+    pub fn draw_debug_ui(ui: &imgui::Ui) {
+        if let Some(window) = ui.window("Debug Window").begin() {
+            if ui.button("Press me!") {
+                log::debug!("hello world!");
+            }
+            window.end();
+        }
     }
 }

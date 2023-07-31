@@ -1,26 +1,28 @@
+pub mod dock;
+
 use sdl2::video::GLContext;
 
-use crate::{input::config::ProgramConfig, Engine};
+use crate::Engine;
 
 pub struct ImGui {
     imgui: imgui::Context,
     imgui_sdl: imgui_sdl2::ImguiSdl2,
     imgui_renderer: imgui_opengl_renderer::Renderer,
-    is_visible: bool,
 }
 
-pub fn init_imgui(engine: &Engine, config: &ProgramConfig) -> ImGui {
+pub fn init_imgui(engine: &Engine) -> ImGui {
     let mut imgui = imgui::Context::create();
     let imgui_sdl = imgui_sdl2::ImguiSdl2::new(&mut imgui, &engine.window);
     let get_proc_address = |s| engine.sdl_video.gl_get_proc_address(s) as _;
     let imgui_renderer = imgui_opengl_renderer::Renderer::new(&mut imgui, get_proc_address);
-    log::info!("ImGui initialied");
+    log::info!("ImGui initialized");
+
+    imgui.io_mut().config_flags |= imgui::ConfigFlags::DOCKING_ENABLE;
 
     ImGui {
         imgui,
         imgui_sdl,
         imgui_renderer,
-        is_visible: config.show_dev_ui,
     }
 }
 
@@ -44,13 +46,5 @@ impl ImGui {
 
     pub fn render(&mut self, _gl: &GLContext) {
         self.imgui_renderer.render(&mut self.imgui);
-    }
-
-    pub fn toggle_visible(&mut self) {
-        self.is_visible = !self.is_visible;
-    }
-
-    pub fn is_visible(&self) -> bool {
-        self.is_visible
     }
 }

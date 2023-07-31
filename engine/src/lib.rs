@@ -124,7 +124,7 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
     let should_quit = false;
 
     // Systems
-    let fullscreen_system = FullscreenSystem::new();
+    let fullscreen_system = FullscreenSystem::new(window_width, window_height);
     let audio = AudioSystem::new();
     let sprite_system = SpriteSystem::new();
     let animation_system = AnimationSystem::new();
@@ -182,10 +182,14 @@ impl<'a> Engine<'a> {
         let time_now = SystemTime::now();
         self.frame.delta_ms = time_now
             .duration_since(self.frame.prev_time)
-            .unwrap()
-            .as_millis();
+            .map_or(self.frame.delta_ms, |time| time.as_millis());
         self.frame.prev_time = time_now;
         self.sdl_event_pump.poll_iter().collect_vec()
+    }
+
+    pub fn request_quit(&mut self) {
+        log::info!("Shutting down");
+        self.should_quit = true;
     }
 
     pub fn should_quit(&self) -> bool {
@@ -217,7 +221,7 @@ impl<'a> Engine<'a> {
             self.renderer.on_window_resize(width, height);
         }
 
-        if self.input.keyboard.is_pressed_now(Keycode::Escape) || self.input.quit {
+        if self.input.quit {
             self.should_quit = true;
         }
 
@@ -280,12 +284,14 @@ fn init_window(
         .build()
         .unwrap();
 
-    if let Ok(bounds) = sdl_video.display_bounds(monitor) {
+    {
+        let bounds = sdl_video.display_bounds(monitor).unwrap();
         window.set_position(
             sdl2::video::WindowPos::Positioned(bounds.x + (bounds.w - width as i32) / 2),
             sdl2::video::WindowPos::Positioned(bounds.y + (bounds.h - height as i32) / 2),
         );
     }
+    window.maximize();
     window.show();
 
     return window;

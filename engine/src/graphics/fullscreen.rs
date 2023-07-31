@@ -18,9 +18,9 @@ enum WindowMode {
 }
 
 impl FullscreenSystem {
-    pub fn new() -> Self {
+    pub fn new(screen_width: u32, screen_height: u32) -> Self {
         FullscreenSystem {
-            last_windowed_pos: (0, 0),
+            last_windowed_pos: ((screen_width / 2) as i32, (screen_height / 2) as i32),
             last_windowed_size: (0, 0),
         }
     }

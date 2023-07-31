@@ -11,6 +11,9 @@ edition = "2021"
 engine = { path = "engine" }
 game = { path = "game" }
 
+# Utility
+glam = "0.23.0"
+
 # Logging
 log = "0.4.17"
 simple_logger = "4.1.0"

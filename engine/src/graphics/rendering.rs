@@ -57,9 +57,9 @@ pub struct Canvas {
     pub size: Dimension,
     pub scaled_size: Dimension,
     pub scale: f32,
-    fbo: u32,
-    vao: u32,
-    texture: u32,
+    pub fbo: u32,
+    pub vao: u32,
+    pub texture: u32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -305,10 +305,6 @@ impl Renderer {
     }
 
     pub fn render(&mut self, _gl: &GLContext) {
-        /* Update canvas */
-        self.canvas
-            .update(self.draw.window_width, self.draw.window_height);
-
         /* Draw to canvas */
         unsafe {
             gl::UseProgram(self.shader.program.0);
@@ -350,30 +346,41 @@ impl Renderer {
         }
 
         /* Render canvas to screen */
+        // FIXME: using this as a temporary fix for separating rendering in
+        // "editor mode" and rendering in "game mode".
+        let should_render_canvas = false;
         unsafe {
             gl::UseProgram(self.shader.program.0);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
-            self.set_projection_matrix(-1.0, 1.0, -1.0, 1.0);
-            gl::Viewport(
-                self.canvas.pos.x,
-                self.canvas.pos.y,
-                self.canvas.scaled_size.width as i32,
-                self.canvas.scaled_size.height as i32,
-            );
 
             // clear
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            gl::BindVertexArray(self.canvas.vao);
-            gl::BindTexture(gl::TEXTURE_2D, self.canvas.texture);
-            gl::DrawArrays(gl::TRIANGLES, 0, 6);
+            if should_render_canvas {
+                self.set_projection_matrix(-1.0, 1.0, -1.0, 1.0);
+                gl::Viewport(
+                    self.canvas.pos.x,
+                    self.canvas.pos.y,
+                    self.canvas.scaled_size.width as i32,
+                    self.canvas.scaled_size.height as i32,
+                );
+
+                gl::BindVertexArray(self.canvas.vao);
+                gl::BindTexture(gl::TEXTURE_2D, self.canvas.texture);
+                gl::DrawArrays(gl::TRIANGLES, 0, 6);
+            }
         }
     }
 
     pub fn canvas(&self) -> &Canvas {
         &self.canvas
     }
+
+    pub fn canvas_mut(&mut self) -> &mut Canvas {
+        &mut self.canvas
+    }
+
     pub fn on_window_resize(&mut self, width: u32, height: u32) {
         self.draw.window_width = width as f32;
         self.draw.window_height = height as f32;
@@ -673,9 +680,14 @@ impl Canvas {
 
         canvas.size.width = canvas_width;
         canvas.size.height = canvas_height;
-        canvas.scale = Self::calculate_scale(window_width, window_height, canvas.size);
-        canvas.scaled_size = Self::calculate_scaled_dimensions(canvas.scale, canvas.size);
-        canvas.pos = Self::calculate_position(window_width, window_height, canvas.scaled_size);
+        canvas.scale = canvas.calculate_scale(window_width, window_height);
+        canvas.scaled_size = canvas.calculate_scaled_dimensions(canvas.scale);
+        canvas.pos = canvas.calculate_position(Rect {
+            x: 0,
+            y: 0,
+            w: window_width as u32,
+            h: window_height as u32,
+        });
         canvas.fbo = fbo;
         canvas.vao = vao;
         canvas.texture = texture;
@@ -684,33 +696,34 @@ impl Canvas {
     }
 
     fn update(&mut self, window_width: f32, window_height: f32) {
-        self.scale = Self::calculate_scale(window_width, window_height, self.size);
-        self.scaled_size = Self::calculate_scaled_dimensions(self.scale, self.size);
-        self.pos = Self::calculate_position(window_width, window_height, self.scaled_size);
+        self.scale = self.calculate_scale(window_width, window_height);
+        self.scaled_size = self.calculate_scaled_dimensions(self.scale);
+        self.pos = self.calculate_position(Rect {
+            x: 0,
+            y: 0,
+            w: window_width as u32,
+            h: window_height as u32,
+        });
     }
 
-    fn calculate_scale(window_width: f32, window_height: f32, dim: Dimension) -> f32 {
+    pub fn calculate_scale(&self, window_width: f32, window_height: f32) -> f32 {
         f32::round(f32::min(
-            window_width as f32 / dim.width as f32,
-            window_height as f32 / dim.height as f32,
+            window_width / self.size.width as f32,
+            window_height / self.size.height as f32,
         ))
     }
 
-    fn calculate_scaled_dimensions(scale: f32, dim: Dimension) -> Dimension {
+    pub fn calculate_scaled_dimensions(&self, scale: f32) -> Dimension {
         Dimension {
-            width: (scale * dim.width as f32) as u32,
-            height: (scale * dim.height as f32) as u32,
+            width: (scale * self.size.width as f32) as u32,
+            height: (scale * self.size.height as f32) as u32,
         }
     }
 
-    fn calculate_position(
-        window_width: f32,
-        window_height: f32,
-        scaled_dim: Dimension,
-    ) -> glam::IVec2 {
+    pub fn calculate_position(&self, window: Rect) -> glam::IVec2 {
         glam::ivec2(
-            (window_width as i32 - scaled_dim.width as i32) / 2,
-            (window_height as i32 - scaled_dim.height as i32) / 2,
+            window.x + (window.w as i32 - self.scaled_size.width as i32) / 2,
+            window.y + (window.h as i32 - self.scaled_size.height as i32) / 2,
         )
     }
 }

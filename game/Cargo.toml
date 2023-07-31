@@ -10,13 +10,13 @@ crate-type = ["rlib", "dylib"]
 engine = { path = "../engine" }
 
 # Utility
-itertools = "0.10.5"
+glam = "0.23.0"
 
 # Platform
 sdl2 = { version = "0.34.5", features = ["mixer"] }
 
 # ImGui
-imgui = "0.9.0"
+imgui = { version = "0.9.0", features = ["docking"] }
 
 # Logging
 log = "0.4.17"
