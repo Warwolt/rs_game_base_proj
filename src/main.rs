@@ -3,6 +3,7 @@ use engine::{input::config::ProgramConfig, Engine};
 use std::path::PathBuf;
 
 mod hot_reload;
+mod logging;
 
 const WINDOW_TITLE: &str = "Game";
 
@@ -20,13 +21,6 @@ mod game {
 
     #[lib_updated]
     pub fn was_reloaded() -> bool {}
-}
-
-fn init_logging() {
-    simple_logger::SimpleLogger::new()
-        .with_module_level("hot_lib_reloader", log::LevelFilter::Error)
-        .init()
-        .unwrap();
 }
 
 fn init_config() -> ProgramConfig {
@@ -59,7 +53,7 @@ fn serialize_config(config: &mut ProgramConfig, game: &GameState) {
 
 fn main() {
     /* Initialize */
-    init_logging();
+    logging::init_logging();
     let mut config = init_config();
     let sdl = engine::init_sdl(&config, WINDOW_TITLE, 800, 600);
     let open_gl = engine::init_opengl(&sdl);

@@ -16,7 +16,7 @@ glam = "0.23.0"
 
 # Logging
 log = "0.4.17"
-simple_logger = "4.1.0"
+log4rs = "1.2.0"
 
 # Hot reloading
 hot-lib-reloader = "^0.6"
