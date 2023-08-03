@@ -1,10 +1,24 @@
 use crate::GameState;
 use engine::{imgui::dock, Engine};
 
+pub struct Editor {
+    layout_initialized: bool,
+    zoom_amount: u8,
+}
+
+impl Editor {
+    pub fn new() -> Self {
+        Editor {
+            layout_initialized: false,
+            zoom_amount: 3,
+        }
+    }
+}
+
 pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
-    let _dockspace = dock::dockspace("DockSpace", ui, &mut game.editor_layout_init)
+    let _dockspace = dock::dockspace("DockSpace", ui, &mut game.editor.layout_initialized)
         .split_node("Right", imgui::Direction::Right, 0.25)
-        .split_node("Bottom", imgui::Direction::Down, 0.25)
+        .split_node("Bottom", imgui::Direction::Down, 0.15)
         .dock_window("SceneView", "DockSpace")
         .dock_window("Log", "Bottom")
         .dock_window("SceneEditor", "Right")
@@ -33,10 +47,10 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
 
     if let Some(_window) = ui.window("SceneEditor").begin() {
         ui.text("Zoom:");
-        ui.radio_button("1x", &mut game.editor_zoom_amount, 1);
-        ui.radio_button("2x", &mut game.editor_zoom_amount, 2);
-        ui.radio_button("3x", &mut game.editor_zoom_amount, 3);
-        ui.radio_button("4x", &mut game.editor_zoom_amount, 4);
+        ui.radio_button("1x", &mut game.editor.zoom_amount, 1);
+        ui.radio_button("2x", &mut game.editor.zoom_amount, 2);
+        ui.radio_button("3x", &mut game.editor.zoom_amount, 3);
+        ui.radio_button("4x", &mut game.editor.zoom_amount, 4);
     }
 
     // FIXME-1: Need to figure out how to keep the canvas position up to date
@@ -56,7 +70,7 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
         // better abstraction for reifying the idea of a "canvas".
 
         // setup canvas size here
-        let scale = game.editor_zoom_amount as f32;
+        let scale = game.editor.zoom_amount as f32;
         let image_size = [
             scale * engine.renderer.canvas().size.width as f32,
             scale * engine.renderer.canvas().size.height as f32,

@@ -3,6 +3,7 @@ mod ui;
 
 use std::{collections::HashMap, path::PathBuf};
 
+use editor::Editor;
 use engine::{
     audio::MusicID,
     geometry::Rect,
@@ -20,10 +21,9 @@ use ui::GameUi;
 
 pub struct GameState {
     ui: GameUi,
+    editor: Editor,
     show_editor_ui: bool,
     show_debug_ui: bool,
-    editor_layout_init: bool,
-    editor_zoom_amount: u8,
     music_playing: bool,
     music_id: MusicID,
     smiley_sprite_sheet_id: SpriteSheetID,
@@ -112,10 +112,9 @@ pub fn init(
 
     GameState {
         ui: GameUi::new(engine),
+        editor: Editor::new(),
         show_debug_ui: config.show_debug_ui,
         show_editor_ui: true,
-        editor_layout_init: false,
-        editor_zoom_amount: 2,
         music_playing: false,
         music_id,
         smiley_sprite_sheet_id,
