@@ -63,7 +63,6 @@ impl<'a, 'ui> DockSpace<'a, 'ui> {
             igSetNextWindowPos((*viewport).Pos, 0, imvec2(0.0, 0.0));
             igSetNextWindowSize((*viewport).Size, 0);
             igSetNextWindowViewport((*viewport).ID);
-            let menu_bar_padding = ui.push_style_var(imgui::StyleVar::FramePadding([0.0, 8.0]));
             let rounding_style = ui.push_style_var(imgui::StyleVar::WindowRounding(0.0));
             let border_style = ui.push_style_var(imgui::StyleVar::WindowBorderSize(0.0));
             let window_padding = ui.push_style_var(imgui::StyleVar::WindowPadding([0.0, 0.0]));
@@ -82,7 +81,6 @@ impl<'a, 'ui> DockSpace<'a, 'ui> {
             window_padding.end();
             border_style.end();
             rounding_style.end();
-            menu_bar_padding.end();
 
             // DockSpace
             let dockspace_label = CString::new(self.label.clone()).unwrap();

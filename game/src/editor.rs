@@ -20,13 +20,11 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
         .split_node("Right", imgui::Direction::Right, 0.25)
         .split_node("Bottom", imgui::Direction::Down, 0.15)
         .dock_window("SceneView", "DockSpace")
-        .dock_window("Log", "Bottom")
+        .dock_window("Info", "Bottom")
         .dock_window("SceneEditor", "Right")
         .begin();
 
-    let menu_bar_padding = ui.push_style_var(imgui::StyleVar::FramePadding([0.0, 8.0]));
     if let Some(_menu_bar) = ui.begin_main_menu_bar() {
-        menu_bar_padding.end();
         if let Some(_file_menu) = ui.begin_menu("File") {
             if ui.menu_item("Exit") {
                 engine.request_quit();
@@ -34,7 +32,7 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
         }
     }
 
-    if let Some(_window) = ui.window("Log").begin() {
+    if let Some(_window) = ui.window("Info").begin() {
         ui.text(format!(
             "window relative mouse {:?}",
             engine.input.mouse.window_pos
