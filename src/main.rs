@@ -63,12 +63,6 @@ fn main() {
 
     engine.renderer.set_resolution(400, 300);
 
-    log::info!("info");
-    log::warn!("warn");
-    log::error!("error");
-    log::debug!("debug");
-    log::trace!("trace");
-
     /* Main loop */
     while !engine.should_quit() {
         /* Input */
