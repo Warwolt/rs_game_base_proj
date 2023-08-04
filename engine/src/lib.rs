@@ -8,6 +8,7 @@ pub mod graphics;
 pub mod hot_reload;
 pub mod imgui;
 pub mod input;
+pub mod logging;
 
 use crate::input::config::ProgramConfig;
 use graphics::{
@@ -29,6 +30,9 @@ use sdl2::video::GLProfile;
 use std::{collections::HashMap, path::PathBuf, time::SystemTime};
 
 pub struct Engine<'a> {
+    // Logging
+    pub captured_log: &'static Vec<logging::LogStatement>,
+
     // SDL
     _sdl: sdl2::Sdl,
     sdl_video: sdl2::VideoSubsystem,
@@ -150,6 +154,8 @@ pub fn init_engine<'a>(sdl: SdlContext, gl: &GLContext) -> Engine<'a> {
     textures.insert(smiley_image_path, smiley_texture_id);
 
     Engine {
+        captured_log: logging::get_log(),
+
         // SDL
         _sdl: sdl.sdl,
         sdl_video: sdl.sdl_video,

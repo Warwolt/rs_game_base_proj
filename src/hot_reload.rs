@@ -49,10 +49,12 @@ impl HotReloader {
                     self.animate_window_title(engine);
                 }
                 CommandStatus::Done => {
+                    log::info!("Rebuilt code successfully");
                     let _ = engine.window.set_title(WINDOW_TITLE);
                     self.build_cmd_invocation = None;
                 }
                 CommandStatus::Failed => {
+                    log::error!("Code rebuild failed!");
                     let _ = engine
                         .window
                         .set_title(&format!("{} (!!! build errors !!!)", WINDOW_TITLE));

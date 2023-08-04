@@ -1,38 +1,86 @@
 use crate::GameState;
 use engine::{imgui::dock, Engine};
+use imgui::StyleColor;
 
 pub struct Editor {
     layout_initialized: bool,
     zoom_amount: u8,
+    show_demo: bool,
 }
 
 impl Editor {
     pub fn new() -> Self {
         Editor {
             layout_initialized: false,
+            show_demo: false,
             zoom_amount: 3,
         }
     }
 }
 
 pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
+    let scene_view_label = "SceneView";
+    let log_label = "Log";
     let _dockspace = dock::dockspace("DockSpace", ui, &mut game.editor.layout_initialized)
         .split_node("Right", imgui::Direction::Right, 0.25)
         .split_node("Bottom", imgui::Direction::Down, 0.15)
-        .dock_window("SceneView", "DockSpace")
-        .dock_window("Info", "Bottom")
+        .dock_window(scene_view_label, "DockSpace")
+        .dock_window(log_label, "Bottom")
         .dock_window("SceneEditor", "Right")
         .begin();
 
+    if game.editor.show_demo {
+        ui.show_demo_window(&mut game.editor.show_demo);
+    }
+
     if let Some(_menu_bar) = ui.begin_main_menu_bar() {
         if let Some(_file_menu) = ui.begin_menu("File") {
+            if ui
+                .menu_item_config("Show Demo")
+                .selected(game.editor.show_demo)
+                .build()
+            {
+                game.editor.show_demo = !game.editor.show_demo;
+            }
+
             if ui.menu_item("Exit") {
                 engine.request_quit();
             }
         }
     }
 
-    if let Some(_window) = ui.window("Info").begin() {
+    if let Some(_window) = ui.window(log_label).begin() {
+        for entry in engine.captured_log {
+            // Print log
+            ui.text(format!("{}", entry.time));
+            ui.same_line();
+            let log_level_color = match entry.level {
+                log::Level::Error => [255.0, 0.0, 0.0, 255.0],   // Red
+                log::Level::Warn => [255.0, 242.0, 0.0, 255.0],  // Yellow
+                log::Level::Info => [0.0, 255.0, 0.0, 255.0],    // Green
+                log::Level::Debug => [255.0, 0.0, 255.0, 255.0], // Purple
+                log::Level::Trace => [0.0, 255.0, 255.0, 255.0], // Cyan
+            };
+            let color_style = ui.push_style_color(StyleColor::Text, log_level_color);
+            ui.text(format!("{}", entry.level));
+            color_style.end();
+            ui.same_line();
+            ui.text(format!("[{}] {}", entry.module, entry.text));
+        }
+
+        // Auto scroll
+        if ui.scroll_y() >= ui.scroll_max_y() {
+            ui.set_scroll_here_y_with_ratio(1.0);
+        }
+    }
+
+    if let Some(_window) = ui.window("SceneEditor").begin() {
+        ui.text("Zoom:");
+        ui.radio_button("1x", &mut game.editor.zoom_amount, 1);
+        ui.radio_button("2x", &mut game.editor.zoom_amount, 2);
+        ui.radio_button("3x", &mut game.editor.zoom_amount, 3);
+        ui.radio_button("4x", &mut game.editor.zoom_amount, 4);
+
         ui.text(format!(
             "window relative mouse {:?}",
             engine.input.mouse.window_pos
@@ -43,21 +91,17 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
         ));
     }
 
-    if let Some(_window) = ui.window("SceneEditor").begin() {
-        ui.text("Zoom:");
-        ui.radio_button("1x", &mut game.editor.zoom_amount, 1);
-        ui.radio_button("2x", &mut game.editor.zoom_amount, 2);
-        ui.radio_button("3x", &mut game.editor.zoom_amount, 3);
-        ui.radio_button("4x", &mut game.editor.zoom_amount, 4);
-    }
-
     // FIXME-1: Need to figure out how to keep the canvas position up to date
     // relative to a scrolled position internally in the window.
     //
     // FIXME-2: Probably we should only be setting up the layout if the ini file
     // doesn't exist? or something. It would be nice to be able to keep the
     // layout used when closing the program.
-    if let Some(_window) = ui.window("SceneView").horizontal_scrollbar(true).begin() {
+    if let Some(_window) = ui
+        .window(scene_view_label)
+        .horizontal_scrollbar(true)
+        .begin()
+    {
         let _canvas_window = ui.child_window("Canvas").begin();
         let window_size = ui.window_size();
         let window_pos = ui.window_pos();

@@ -7,6 +7,8 @@ edition = "2021"
 # Utility
 itertools = "0.10.5"
 glam = "0.23.0"
+chrono = "0.4.26"
+colored = "2.0.4"
 
 # Platform
 sdl2 = { version = "0.34.5", features = ["mixer"] }
