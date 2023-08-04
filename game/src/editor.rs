@@ -97,14 +97,8 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
     // FIXME-2: Probably we should only be setting up the layout if the ini file
     // doesn't exist? or something. It would be nice to be able to keep the
     // layout used when closing the program.
-    if let Some(_window) = ui
-        .window(scene_view_label)
-        .horizontal_scrollbar(true)
-        .begin()
-    {
+    if let Some(_window) = ui.window(scene_view_label).begin() {
         let _canvas_window = ui.child_window("Canvas").begin();
-        let window_size = ui.window_size();
-        let window_pos = ui.window_pos();
         let canvas_texture = engine.renderer.canvas().texture as usize;
 
         // FIXME: the canvas should be kept up to date in another function
@@ -117,9 +111,12 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
             scale * engine.renderer.canvas().size.width as f32,
             scale * engine.renderer.canvas().size.height as f32,
         ];
+
+        let avail_size = ui.content_region_avail();
+        let cursor_pos = ui.cursor_screen_pos();
         let image_pos = [
-            f32::round(window_pos[0] + (window_size[0] - image_size[0]) * 0.5),
-            f32::round(window_pos[1] + (window_size[1] - image_size[1]) * 0.5),
+            cursor_pos[0] + f32::ceil(f32::max(0.0, (avail_size[0] - image_size[0]) * 0.5)),
+            cursor_pos[1] + f32::ceil(f32::max(0.0, (avail_size[1] - image_size[1]) * 0.5)),
         ];
 
         // need to keep canvas size and pos up to date for mouse to work
@@ -130,8 +127,6 @@ pub fn draw_ui(game: &mut GameState, engine: &mut Engine, ui: &imgui::Ui) {
         canvas.scaled_size.width = image_size[0] as u32;
         canvas.scaled_size.height = image_size[1] as u32;
 
-        // FIXME: this somehow completely messes up scrolling, but centering the
-        // image is required in order to make the canvas view look nice
         ui.set_cursor_screen_pos(image_pos);
         let _ = imgui::Image::new(imgui::TextureId::new(canvas_texture), image_size)
             .uv0([0.0, 1.0])
