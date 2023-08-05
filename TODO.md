@@ -25,9 +25,12 @@
   - [x] play music
   - [x] hot reload audio files
 
-- [ ] gui
-  - [ ] setup a gui framework
-  - [ ] add simple editor for testing out geometry code
+- [x] gui
+  - [x] setup a gui framework
+  - [x] add simple editor for testing out geometry code
+
+- [ ] editor
+  - [ ] re-architecture the program so that an editor can launch a game in a new window
 
 - [ ] physics
   - [ ] geometry
